@@ -4,7 +4,9 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [liberator "0.13"]
+                 [server-socket "1.0.0"]
                  [cheshire "5.5.0"]]
-  :plugins [[lein-ring "0.9.7"]]
-  :ring {:handler birdie-tell.core/handler})
+  :main ^:skip-aot birdie-tell.core/main
+;;  :plugins [[lein-ring "0.9.7"]]
+;;  :ring {:handler birdie-tell.core/handler}
+  )
