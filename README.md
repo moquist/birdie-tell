@@ -1,51 +1,75 @@
 # birdie-tell
 
-This is a small Clojure application/library that implements a simple
-Gossip protocol for fun and exploration. At this point, it's very
-preliminary and needs careful thought about the following:
+<img alt="Gossip in action" src="http://blogs.unimelb.edu.au/sciencecommunication/files/2014/10/Screen-shot-2014-10-20-at-6.34.52-PM.png"/>
 
-1. Wall-clock distribution: bad! Use a vector clock to gossip accurately.
+This is a small Clojure application/library that implements a simple
+data-propagation Gossip protocol for fun and exploration.
+
+As a simple use case, consider a router named Zelda that can route to networks A, B, and D. The gossip protocol implemented by this library would allow Zelda to inform her peer routers Yolanda, Xerces, and Wenderson that she can route to networks A, B, and D. Yolanda, Xerces, and Wenderson can then send Zelda traffic for those networks.
+
+Lessons learned:
+1. Distributed systems are harder than they seem, and (2) #1 is true even after you've accepted #1.
+
+Meetup todo:
+1. write up model: what are its properties?
+2. write up problems & correct gossip implementations
+3. write up problems to solve
+
+TODOs:
+1. detect and :down peers *nobody's* heard from in a while
+1. TTL to avoid passing *all* data on every time
+1. Implement 'output-stream-handler in order to reply to gossip with gossip, rather than just receiving gossip silently.
+1. use inotify lib to watch input-file
+1. switch from input-file to listening socket
+1. Add error-checking to 'split-hostport.
+1. Write some generative tests of this library/application.
+1. Use transit (https://github.com/cognitect/transit-clj) for transport.
+
 1. Carefully define gossip convergence.
 1. Articulate a [better] model of failure detection.
-1. Should there be a leader for the cluster?
 
 ## Usage
 
+The following example starts a peer that:
+
+1. watches `data00.edn` as the backing data store,
+1. has UUID `uuid:0`,
+1. is named `yelnats`,
+1. listens on `127.0.0.1:2400`, and
+1. will try occasionally to talk to `127.0.0.1:2401`.
+
 ```bash
-LIVE_PERCENTAGE=90
-MAX_HOTNESS=2
-LISTEN_PORT=2235
-MY_HOST_PORT=127.0.0.1:2235
-PEER_1=127.0.0.1:2236
-PEER_2=127.0.0.1:2237
-lein run $MAX_HOTNESS $LIVE_PERCENTAGE $LISTEN_PORT $MY_HOST_PORT $PEER_1 $PEER_2
+lein run -- --input-file data00.edn --uuid uuid:0 --name yelnats --host-port 127.0.0.1:2400 --peer 127.0.0.1:2401
 ```
 
-Every peer always reports that it, itself, is :alive.
-
-* `LIVE_PERCENTAGE` is the percentage liklihood that I'll try to choose a random gossip peer whom I think is :alive, vs. :dead. Gossipping with :dead peers occasionally is a good way to recover a relationship after a network partition or peer restart.
-* `MAX_HOTNESS` is the number of times I'll repeat the news I've been given about a given peer. Increasing this generally increases network traffic and the amount of redundant gossip; decreasing this makes news travel more slowly.
-* `LISTEN_PORT` is the port I open to listen for gossip. I might open a local port that is remapped by a firewall or tunnel, so that my peers might see me differently.
-* `MY_HOST_PORT` is the host:port pair I use to identify myself to others; this is my caller-id.
-* `PEER_n` is a host:port pair to add to my initial list of peers. Any number of host:port pairs may be passed here.
+While the peer is running, edit the file `data01.edn` and save your changes. Watch the peer's output to see the `:data` update, and the `:version` be incremented.
 
 ## Example
 
 Open four terminals so you can see them all on one screen. [Divvy](http://mizage.com/divvy/) is great for arranging these. In these four terminals, run the following commands:
 
-### Terminal 1
-`lein run 1 90 2237 127.0.0.1:2237 127.0.0.1:2236`
+### Terminal A
+`./run.sh 0`
 
-### Terminal 2
-`lein run 1 90 2236 127.0.0.1:2236 127.0.0.1:2235`
+### Terminal B
+`./run.sh 1`
 
-### Terminal 3
-`lein run 1 90 2235 127.0.0.1:2235 127.0.0.1:2234`
+### Terminal C
+`./run.sh 2`
 
-### Terminal 4
-`lein run 1 90 2234 127.0.0.1:2234 127.0.0.1:2237`
+### Terminal D
+`./run.sh 3`
 
 After they all start showing that they're all :alive, `CTRL-c` one or two (or three!) of them, then restart them, and watch the group recover.
+
+## Resources
+
+1. https://github.com/michaelklishin/vclock
+1. http://courses.csail.mit.edu/6.895/fall02/papers/Ladin/acmtocs.pdf
+1. https://code.google.com/p/cassandra-shawn/wiki/GossipProtocol
+1. http://doc.akka.io/docs/akka/snapshot/common/cluster.html
+1. https://github.com/edwardcapriolo/gossip
+1. http://courses.washington.edu/css434/students/Gossip.pdf
 
 ## TODO
 
