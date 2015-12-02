@@ -207,6 +207,35 @@
                      (:identified peers))]
     (assoc categorized :potential (-> peers :potential vec))))
 
+(defn- select-peer
+  "Take a 'live-percentage integer and a map of :identified and
+  :potential peers.
+
+  'live-percentage specifies the percentage liklihood of attempting to
+  select an :alive? peer.
+
+  If there are no :alive? peers, or in the remaining percentage of
+  cases, randomly select (with 0.5 probability of either) a peer that
+  is not :alive? or a :potential peer.
+
+  If there are no :potential or :identified peers, return nil.
+
+  Return a peer host-port string, e.g., \"hostname:1234\"
+  "
+  [live-percentage peers]
+  (let [categorized-peers (categorize-peer-liveness peers)
+        chosen-peers (into {} (map (fn [[k v]] [k (when (seq v) (rand-nth v))])
+                                   categorized-peers))
+        priorities (if (< (rand-int 100) live-percentage)
+                     [:alive :dead :potential]
+                     (if (zero? (rand-int 2))
+                       [:dead :potential :alive]
+                       [:potential :dead :alive]))]
+    (->> priorities ; take our category priority order
+         (map #(% chosen-peers)) ; get the selected peers in priority order
+         (filter identity) ; eliminate 'nil peers (empty categories)
+         first))) ; return the first
+
 (defn choose-news
   "Choose all the latest hot news that I have in my little bird-brain.
 
