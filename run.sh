@@ -2,7 +2,7 @@
 # Run one of four preconfigured peers.
 # Usage: ./run.sh { 0 | 1 | 2 | 3 }
 
-PEER="$1"
+PEER="$1" && shift
 BASE_PORT=${BASE_PORT:-2400}
 
 if [ ! "$PEER" ]; then
@@ -19,4 +19,5 @@ lein run -- \
     --input-file data0${PEER}.edn \
     --uuid uuid:${PEER} \
     --host-port 127.0.0.1:$(( $BASE_PORT + ${PEER} )) \
-    --peer 127.0.0.1:$(( $BASE_PORT + (($PEER + 1) % 4) ))
+    --peer 127.0.0.1:$(( $BASE_PORT + (($PEER + 1) % 4) )) \
+    "$@"
