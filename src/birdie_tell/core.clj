@@ -183,6 +183,30 @@
         (println "Seems dead: " [host port])
         (handler-fn false peer-host-port)))))
 
+(defn- categorize-peer-liveness
+  "Take a peers map with :identified and :potential keys, and extract
+  a mapping of peer states to host-port strings.
+
+  Example:
+      (categorize-peer-liveness
+       {:identified {\"uuid:1\" {:alive? true :host-port \"127.0.0.1:400\"}
+                     \"uuid:2\" {:alive? false :host-port \"127.0.0.1:401\"}}
+        :potential #{\"127.0.0.1:402\"}})
+      ;;=> {:alive [\"127.0.0.1:400\"]
+      ;;    :dead [\"127.0.0.1:401\"]
+      ;;    :potential [\"127.0.0.1:402\"]}
+  "
+  [peers]
+  (let [categorized (reduce
+                     (fn [categories [_k v]]
+                       (let [category (if (:alive? v) :alive :dead)
+                             host-port (:host-port v)
+                             category-members (categories category)]
+                         (assoc categories category (conj category-members host-port))))
+                     {:alive [] :dead []}
+                     (:identified peers))]
+    (assoc categorized :potential (-> peers :potential vec))))
+
 (defn choose-news
   "Choose all the latest hot news that I have in my little bird-brain.
 
