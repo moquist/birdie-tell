@@ -151,51 +151,6 @@
     (output-stream-handler output-stream)
     nil))
 
-(defn- update-peer!
-  "Update a peer's state in the specified 'peers atom.
-
-  Take a 'peers atom, a 'max-hotness integer, and a vector with this shape:
-      [[host port] state]
-
-  Return nil."
-  [peers max-hotness [host-port state]]
-  {:pre [(vector? host-port) (keyword? state)]}
-  (swap! peers #(merge-with merge
-                            %
-                            {:states {host-port state}
-                             :hotness {host-port max-hotness}}))
-  nil)
-
-(defn- import-chirps
-  "Take a map of input 'chirps. Split host:port pairs and ensure states
-  are keywords.
-
-  Example:
-      (import-chirps {\"127.0.0.1:2234\" \"alive\", \"127.0.0.1:2237\" \"alive\"})
-      ;==> {[\"127.0.0.1\" 2234] :alive, [\"127.0.0.1\" 2237] :alive}
-  "
-  [chirps]
-  (into {}
-        (map (fn [[k v]] [(split-hostport k) (keyword v)])
-             chirps)))
-
-;; TODO: think about core.async
-(defn- receive-gossip
-  "Take an 'input-stream and a (unused) '_output-stream.
-
-  Parse 'input-stream JSON into a 'news map (see 'choose-news), and
-  map 'update-peer! across each entry in that map.
-
-  Return nil."
-  [max-hotness input-stream _output-stream]
-  (let [chirps (-> input-stream
-                   (InputStreamReader. "UTF-8")
-                   cheshire/parse-stream)
-        chirps (import-chirps chirps)]
-    ;; TODO: pull side-effects out, pass fn in (to allow for multiple implementations and general decomplection)
-    (dorun (map (partial update-peer! #'peers max-hotness) chirps))
-    nil))
-
 (defn- listen
   "Start listening on 'port, calling 'parse-gossip with
   'gossip-handler and input/output handlers on connect."
