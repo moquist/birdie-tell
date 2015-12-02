@@ -253,18 +253,19 @@
                      ffirst)]
     (swap! state assoc-in [:peers :identified uuid :alive?] alive?)))
 
-(defn mingle [live-percentage max-hotness min-rest-time max-rest-time my-ip-addr my-port]
-  (let [wait-range (- max-rest-time min-rest-time)]
+;; TODO: lift out call to 'send-gossip, 'Thread/sleep, and rest-time handling
+(defn start-gossipping! [live-percentage min-rest-time max-rest-time state]
+  (let [wait-range (- max-rest-time min-rest-time)
+        my-uuid (:uuid @state)
+        filter-out-self (fn [{:keys [identified potential]}]
+                          {:potential potential
+                           :identified (filter (fn [[k v]] (not= my-uuid k)) identified)})]
     (while true
-      (pprint [:peers @peers])
-      (if-let [peer (get-peer live-percentage @peers)]
-        (send-gossip
-         max-hotness
-         (assoc (choose-news @peers)
-                (join-hostport my-ip-addr my-port) :alive)
-         peer))
-      ;; forget stuff even if there's nobody to tell; it'll be old news later
-      (distract-self peers)
+      (util/debug :start-gossipping @state)
+      (if-let [peer (select-peer live-percentage (filter-out-self (:peers @state)))]
+        (do
+          (util/debug :gossiping-to-peer peer)
+          (send-gossip (partial handle-peer-liveness state) @state peer)))
       (Thread/sleep (+ min-rest-time (rand-int wait-range))))))
 
 (defn main
