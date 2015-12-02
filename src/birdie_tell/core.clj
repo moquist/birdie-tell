@@ -236,6 +236,23 @@
          (filter identity) ; eliminate 'nil peers (empty categories)
          first))) ; return the first
 
+(defn- handle-peer-liveness
+  "Take a 'state atom, an 'alive? predicate, and a 'peer-host-port.
+
+  Find the first UUID corresponding to the specified 'peer-host-port.
+  TODO: Figure out how to protect against / handle duplicate 'peer-host-port values in 'state.
+
+  'swap! the 'alive? predicate for the specified 'peer-host-port into 'state.
+  "
+  [state alive? peer-host-port]
+  (util/debug :handle-peer-liveness @state alive? peer-host-port)
+  (if-let [uuid (->> @state
+                     :peers
+                     :identified
+                     (filter (fn [[k v]] (= peer-host-port (:host-port v))))
+                     ffirst)]
+    (swap! state assoc-in [:peers :identified uuid :alive?] alive?)))
+
 (defn choose-news
   "Choose all the latest hot news that I have in my little bird-brain.
 
