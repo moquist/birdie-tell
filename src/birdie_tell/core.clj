@@ -297,7 +297,14 @@
              :uuid uuid ; my self-reference into [:peers :identified]
              :peers {:potential peer ; TODO: allow more than one potential peer
                      :identified {uuid {:version 0
-                                        :name name
+
+                                        ;; Leave :name out for now;
+                                        ;; it's not needed with
+                                        ;; user-supplied UUIDs, and
+                                        ;; fills up the screen too
+                                        ;; much.
+                                        ;; :name name
+
                                         :uuid uuid
                                         :host-port host-port}}})
 
