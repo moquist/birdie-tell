@@ -253,56 +253,6 @@
                      ffirst)]
     (swap! state assoc-in [:peers :identified uuid :alive?] alive?)))
 
-(defn choose-news
-  "Choose all the latest hot news that I have in my little bird-brain.
-
-  Returns a news-map with this shape:
-
-  {host-port :status
-   host-port2 :status}
-
-  For example: {\"127.0.0.1:1234\": \"alive\"
-                \"127.0.0.1:1235\": \"dead\"}
-  "
-  [peers]
-  (->> peers
-       :hotness
-       (map first)
-       (select-keys (:states peers))
-       (map (fn [[[host port] v]] [(join-hostport host port) v]))
-       (into {})))
-
-(defn- get-peer
-  "Select a random :alive peer if possible, else a :dead one.
-
-  If there are no peers, return nil.
-
-  Returns a peer vector in this shape:
-  [host port]"
-  [live-percentage peers]
-  (let [peers (reduce (fn [r [k v]] (merge-with concat r {v [k]}))
-                      {}
-                      (:states peers))
-        ;; sometimes contact a dead one on purpose
-        [primary-state secondary-state] (if (< (rand-int 100) live-percentage)
-                                          [:alive :dead]
-                                          [:dead :alive])
-        peer (if (seq (primary-state peers))
-               (rand-nth (primary-state peers))
-               (rand-nth (secondary-state peers)))]
-    peer))
-
-(defn- distract-self
-  "Decrease the hotness of all current news, eliminating entirely any
-  news that reaches a hotness level of zero."
-  [peers]
-  (swap! peers assoc :hotness
-         (->> @peers
-              :hotness
-              (filter (fn [[host-port hotness]] (< 1 hotness)))
-              (map (fn [[host-port hotness]] [host-port (dec hotness)]))
-              (into {}))))
-
 (defn mingle [live-percentage max-hotness min-rest-time max-rest-time my-ip-addr my-port]
   (let [wait-range (- max-rest-time min-rest-time)]
     (while true
