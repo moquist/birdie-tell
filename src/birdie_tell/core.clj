@@ -20,28 +20,33 @@
   (:import (java.net Socket SocketException)
            (java.io PrintWriter InputStreamReader BufferedReader)))
 
-(defn vclock-play []
-  (let [a0 (vclock/fresh :127.0.0.1:1234 :alive)
-        b0 (vclock/fresh :127.0.0.1:1235 :alive)
-        a1 (vclock/increment a0 [:dabba :yeep])
-        ]
-    {:a0 a0
-     :b0 b0
-     :a1 a1}
-    ))
+(comment
+  ;; Sample peer state
+  {:uuid "725b7252-d104-44e0-9c73-3cf7f87fb41d"
+   :peers
+   {:identified {"725b7252-d104-44e0-9c73-3cf7f87fb41d" {:data {:silk #{:calde :augur}
+                                                                :auk  #{:prophet :thief}}
+                                                         :version 10
+                                                         :name "wolfe"
+                                                         :host-port "127.0.0.1:1400"}
+                 "f7fe1c2f-aaf8-4166-9689-588805424bcb" {:data {:grandpa-joe #{:old :bedridden}
+                                                                :wonka #{:dapper :bottle-green-pants}
+                                                                :charlie #{:mopey :poor}}
+                                                         :version 0
+                                                         :name "dahl"
+                                                         :alive? true
+                                                         :host-port "127.0.0.1:1401"}
+                 "41008adf-fcdd-4ef5-8a70-0f0dccd3d806" {:data {:gimli #{:bearded :short :tired}
+                                                                :legolas #{:lithe :merry}
+                                                                :aragorn #{:brooding :wise :unaccountably-old}}
+                                                         :version 7
+                                                         :name "tolkien"
+                                                         :alive? false
+                                                         :host-port "127.0.0.1:1402"}}
+    :potential #{"127.0.0.1:1403"}}}
 
-;; To read:
-;; https://github.com/michaelklishin/vclock
-;; http://courses.csail.mit.edu/6.895/fall02/papers/Ladin/acmtocs.pdf
-;; https://code.google.com/p/cassandra-shawn/wiki/GossipProtocol
-;; http://doc.akka.io/docs/akka/snapshot/common/cluster.html
-;; https://github.com/edwardcapriolo/gossip
-;; http://courses.washington.edu/css434/students/Gossip.pdf
+  )
 
-;; Basically, I need a kind of shared clock (vector clock, likely) and
-;; each piece of juicy gossip needs to show up with a timestamp
-;; according to the shared clock. This allows us to reject old news,
-;; and mitigate the hotness of news that's pretty old.
 
 ;; * what are the states? what does the state machine look like?
 ;; * what is the protocol?
@@ -50,15 +55,10 @@
 ;; * separate ns for user interaction: init the state, read the state, update the state
 ;; * separate ns for CLI interface
 
-;; right now, we only notice a peer is dead if we try to talk to it and can't.
-;; what if nobody(?) hears from it for a while?
-
-(def peers (atom {:states {}
-                  ;; :states is a map from [host port] to :state
-                  ;; :hotness is a map from [host port] to a hotness
-                  ;;          integer that approaches zero as news
-                  ;;          ages
-                  :hotness {}}))
+(def state (atom {
+                  ;; mapping from UUIDs to states of peers, including me!
+                  :peers {}
+                  }))
 
 (defn- split-hostport
   "Split a host:port pair into a vector with a string host and an integer port.
