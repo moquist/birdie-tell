@@ -47,14 +47,6 @@
 
   )
 
-
-;; * what are the states? what does the state machine look like?
-;; * what is the protocol?
-;; * what are the transitions between states?
-;; * what transport options are there? sockets, core.async, other?
-;; * separate ns for user interaction: init the state, read the state, update the state
-;; * separate ns for CLI interface
-
 (def state (atom {
                   ;; mapping from UUIDs to states of peers, including me!
                   :peers {}
@@ -264,6 +256,7 @@
       (if-let [peer (select-peer live-percentage (filter-out-self (:peers @state)))]
         (do
           (util/debug :gossiping-to-peer peer)
+          ;; TODO: lift send-gossip out of here, take in a send-gossip fn instead
           (send-gossip (partial handle-peer-liveness state) @state peer)))
       (delay-fn))))
 
@@ -312,11 +305,10 @@
 (defn main [& args]
   (let [{:keys [debug host-port input-file live-percentage maximum-gossip-wait minimum-gossip-wait name peer uuid]}
         (util/parse-opts args)]
-    (if debug (reset! util/debug? true))
-    (let [uuid (or uuid (util/uuid))
-          [_ my-port] (split-hostport host-port)
-          peer (if peer #{peer} #{})
-          delay-fn (make-delay-fn minimum-gossip-wait maximum-gossip-wait)]
+    (if debug (reset! util/debug? true)) ; enable debugging immediately, if we want it
+    (let [uuid (or uuid (util/uuid)) ; ensure this peer has a UUID
+          [_ my-port] (util/split-hostport host-port) ; split out this peer's listening port
+          peer (if peer #{peer} #{}) ; set up our initial set of potential peers
 
       ;; Init.
       (swap! state assoc
@@ -326,21 +318,24 @@
                                         :name name
                                         :uuid uuid
                                         :host-port host-port}}})
+
+      ;; Start listening for gossip.
       (listen #(swap! state merge-peer-state %) my-port)
 
+      ;; Start watching my local input file for changes to this peer's :data.
       (.start (Thread. #(do-self-updating! input-file state 1000)))
 
       ;; TODO: fix state refs to be to the var, & resolve the var
+      ;; Start spreading gossip.
       (.start (Thread. #(start-gossipping!
                          live-percentage
                          delay-fn
                          state)))
 
-      ;; Output my state each second to watch for changes.
+      ;; Output this peer's state each second to watch for changes.
       (while true
         (pprint @state) (prn)
         (Thread/sleep 1000)))))
-
 
 (comment
   (require 'birdie-tell.core :reload-all) (in-ns 'birdie-tell.core) (use 'clojure.repl)
