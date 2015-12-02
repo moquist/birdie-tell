@@ -93,6 +93,19 @@
                 my-path
                 (merge my-state {:data new-data :version (inc (:version my-state))})))))
 
+(defn- clean-potential-peers
+  "Remove each host-port entry in :peers :potential that is found in
+  an :identified peer.
+
+  Philosophical rationale: realized potential is no longer potential."
+  [dirty-state]
+  (let [identified-peer-host-ports (->> dirty-state :peers :identified
+                                        (reduce (fn [r [k v]] (conj r (:host-port v))) #{}))]
+    (update-in dirty-state
+               [:peers :potential]
+               difference
+               identified-peer-host-ports)))
+
 (defn- update-peer!
   "Update a peer's state in the specified 'peers atom.
 
