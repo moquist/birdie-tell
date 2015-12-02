@@ -15,7 +15,7 @@
             [cheshire.core :as cheshire]
             [clojure.edn :as edn]
             [clojure.string :as str]
-            [clojurewerkz.vclock.core :as vclock]
+            [birdie-tell.util :as util]
             [clojure.pprint :refer [pprint]])
   (:import (java.net Socket SocketException)
            (java.io PrintWriter InputStreamReader BufferedReader)))
