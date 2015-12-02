@@ -26,9 +26,17 @@
     been reached"
     :default 80
     :parse-fn #(Integer/parseInt %)
-    :validate [#(< 0 % 100) "Must be a number between 0 and 100"]]
+    :validate [#(< 0 % 101) "Must be a number between 0 and 101 (exclusive)"]]
+   [nil "--maximum-gossip-wait <milliseconds>" "Maximum amount of time to wait between gossip attempts"
+    :default 10000 ; 10 seconds
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(<= 0 %) "Must be a number greater than 0"]]
+   [nil "--minimum-gossip-wait <milliseconds>" "Minimum amount of time to wait between gossip attempts"
+    :default 1000 ; 1 second
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(<= 0 % 600000) "Must be a number between 0 and 600001 (exclusive) (10 minutes)"]]
    ["-n" "--name <name>" "This peer's human-readable name"]
-   ["-p" "--peer <host-port>" "Specify a <host>:<port> pair to discover a peer."
+   ["-p" "--peer <host-port>" "Specify a <host>:<port> pair as a potential peer; this is necessary for peer discovery."
     :validate [validate-host-port "host cannot have a colon, and port must be numeric"]]
    ["-u" "--uuid <UUID>" "This peer's UUID (optional)"]])
 

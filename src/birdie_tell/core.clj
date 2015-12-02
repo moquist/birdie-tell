@@ -254,9 +254,8 @@
     (swap! state assoc-in [:peers :identified uuid :alive?] alive?)))
 
 ;; TODO: lift out call to 'send-gossip, 'Thread/sleep, and rest-time handling
-(defn start-gossipping! [live-percentage min-rest-time max-rest-time state]
-  (let [wait-range (- max-rest-time min-rest-time)
-        my-uuid (:uuid @state)
+(defn start-gossipping! [live-percentage delay-fn state]
+  (let [my-uuid (:uuid @state)
         filter-out-self (fn [{:keys [identified potential]}]
                           {:potential potential
                            :identified (filter (fn [[k v]] (not= my-uuid k)) identified)})]
@@ -266,7 +265,7 @@
         (do
           (util/debug :gossiping-to-peer peer)
           (send-gossip (partial handle-peer-liveness state) @state peer)))
-      (Thread/sleep (+ min-rest-time (rand-int wait-range))))))
+      (delay-fn))))
 
 (defn- do-self-updating!
   "Parse 'data-file as EDN every 'reread-delay-ms, and update :data in
@@ -277,12 +276,19 @@
         (swap! state merge-my-data data))
       (Thread/sleep reread-delay-ms)))
 
+(defn- make-delay-fn [min-rest-time max-rest-time]
+  {:pre [(< min-rest-time max-rest-time)]} ; this would be better located in argument parsing context
+  (let [wait-range (- max-rest-time min-rest-time)]
+    #(Thread/sleep (+ min-rest-time (rand-int wait-range)))))
+
 (defn main [& args]
-  (let [{:keys [peer host-port name live-percentage input-file debug uuid]} (util/parse-opts args)]
+  (let [{:keys [debug host-port input-file live-percentage maximum-gossip-wait minimum-gossip-wait name peer uuid]}
+        (util/parse-opts args)]
     (if debug (reset! util/debug? true))
     (let [uuid (or uuid (util/uuid))
           [_ my-port] (split-hostport host-port)
-          peer (if peer #{peer} #{})]
+          peer (if peer #{peer} #{})
+          delay-fn (make-delay-fn minimum-gossip-wait maximum-gossip-wait)]
 
       ;; Init.
       (swap! state assoc
@@ -297,7 +303,10 @@
       (.start (Thread. #(do-self-updating! input-file state 1000)))
 
       ;; TODO: fix state refs to be to the var, & resolve the var
-      (.start (Thread. #(start-gossipping! live-percentage 1000 10000 state)))
+      (.start (Thread. #(start-gossipping!
+                         live-percentage
+                         delay-fn
+                         state)))
 
       ;; Output my state each second to watch for changes.
       (while true
