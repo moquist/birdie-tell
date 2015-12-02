@@ -67,8 +67,7 @@
       (split-hostport \"hostname:1234\")
       ;=> [\"hostname\" 1234]"
   [host-port]
-  ;; TODO: add error checking
-  (let [[ip-addr port] (str/split host-port #":")
+  (let [[ip-addr port & trash] (str/split host-port #":")
         port (Integer/parseInt port)]
     [ip-addr port]))
 
