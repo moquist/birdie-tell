@@ -253,11 +253,6 @@
         (swap! state merge-my-data data))
       (Thread/sleep reread-delay-ms)))
 
-(defn- make-delay-fn [min-rest-time max-rest-time]
-  {:pre [(< min-rest-time max-rest-time)]} ; this would be better located in argument parsing context
-  (let [wait-range (- max-rest-time min-rest-time)]
-    #(Thread/sleep (+ min-rest-time (rand-int wait-range)))))
-
 (defn calculate-propagation-steps
   "Calculate the probabilistic number of gossip steps it will take for
   data from one peer to reach every other cluster member in a cluster
@@ -294,7 +289,10 @@
           [_ my-port] (util/split-hostport host-port) ; split out this peer's listening port
           peer (if peer #{peer} #{}) ; set up our initial set of potential peers
 
-      ;; Init.
+          ;; Create a fn to delay between gossip attempts.
+          delay-fn (util/make-delay-fn minimum-gossip-wait maximum-gossip-wait)]
+
+      ;; Initialize local peer state.
       (swap! state assoc
              :uuid uuid ; my self-reference into [:peers :identified]
              :peers {:potential peer ; TODO: allow more than one potential peer

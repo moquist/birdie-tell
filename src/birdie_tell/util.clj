@@ -66,3 +66,9 @@
   "Join a host, port pair into a host:port string."
   [host port]
   (str host ":" port))
+
+(defn make-delay-fn [min-rest-time max-rest-time]
+  {:pre [(< min-rest-time max-rest-time)]} ; this would be better located in argument parsing context
+  (let [wait-range (- max-rest-time min-rest-time)]
+    #(Thread/sleep (+ min-rest-time (rand-int wait-range)))))
+
