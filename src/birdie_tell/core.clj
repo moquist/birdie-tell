@@ -307,20 +307,5 @@
 
 (comment
   (require 'birdie-tell.core :reload-all) (in-ns 'birdie-tell.core) (use 'clojure.repl)
-
-  ;; peers example
-  (def peers (atom
-              {:states {["127.0.0.1" 1997] :alive
-                        ["127.0.0.1" 1996] :alive
-                        ["127.0.0.1" 1995] :dead
-                        ["127.0.0.1" 1994] :mostly-dead}
-               :hotness {["127.0.0.1" 1997] 2
-                         ["127.0.0.1" 1996] 1
-                         ["127.0.0.1" 1995] 5
-                         ["127.0.0.1" 1994] 3}
-               }))
-
-  (->> 'cheshire.core ns-map keys (map name) (filter #(re-find #"ns-" %)))
-  (->> 'cheshire.core ns-publics keys (map name))
   )
 
