@@ -18,8 +18,12 @@ and Wenderson can then send Zelda traffic for those networks.
 
 Use `lein run -- --help` to see the options.
 
-Use `./run.sh 0`, `./run.sh 1`, `./run.sh 2`, and `./run.sh 3` in four
-separate terminals (or tmux windows) and watch it go.
+Use `./run.sh 0`, and just watch the output for a bit to get a sense
+of what a single peer's local state looks like.
+
+Then `./run.sh 1`, `./run.sh 2`, and `./run.sh 3` in three separate
+terminals (or tmux windows) and watch their local states take in
+gossip data.
 
 Edit `data00.edn`, `data01.edn`, etc. and watch state changes
 propagate.
@@ -28,12 +32,14 @@ propagate.
 
 <a href="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67"><img align="right" src="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67" width="400"/></a>
 
-Gossip protocols are named for a metaphor; imagine people gathering
-around a water cooler and exchanging the latest news with random
-people who happen to visit the cooler at the same moment.
+[Gossip protocols](https://en.wikipedia.org/wiki/Gossip_protocol) are
+named for a metaphor; imagine people gathering around a water cooler
+and exchanging the latest news with random people who happen to visit
+the cooler at the same moment.
 
-Gossip protocols can make use of distributed programming tools such as
-[vector clocks](https://en.wikipedia.org/wiki/Vector_clock) to achieve
+Gossip protocols can be used for reliable distribution of data and
+computation, and I'm interested in incorporating [vector
+clocks](https://en.wikipedia.org/wiki/Vector_clock) to achieve
 consensus on shared state, but I haven't gotten that far, yet!
 
 ### Lessons learned:
@@ -91,25 +97,7 @@ birdie-tell.core=> (time (calculate-propagation-steps 10000))
 17
 ```
 
-17 randomized gossip rounds to propagate through a 10000-node cluster! birdie-tell is clearly low-latency, but the tradeoff is that there's a *lot* of redundant data exchanged.
-
-Meetup todo:
-
-1. break up namespaces
-1. handle thread harvesting
-1. write up problems & correct gossip implementations
-1. write up problems to solve
-
-TODOs:
-
-1. detect and :down peers *nobody's* heard from in a while
-1. TTL to avoid passing *all* data on every time
-1. Implement 'output-stream-handler in order to reply to gossip with gossip, rather than just receiving gossip silently.
-1. use inotify lib to watch input-file
-1. switch from input-file to listening socket
-1. Add error-checking to 'split-hostport.
-1. Write some generative tests of this library/application.
-1. Use transit (https://github.com/cognitect/transit-clj) for transport.
+17 randomized gossip rounds to propagate through a 10000-node cluster!
 
 ## Usage
 
@@ -153,6 +141,10 @@ After they all start showing that they're all :alive, `CTRL-c` one or two (or th
 1. http://doc.akka.io/docs/akka/snapshot/common/cluster.html
 1. https://github.com/edwardcapriolo/gossip
 1. http://courses.washington.edu/css434/students/Gossip.pdf
+
+## TODO
+
+1. handle threads properly
 
 ## License
 
