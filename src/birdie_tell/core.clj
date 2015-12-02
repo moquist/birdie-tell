@@ -164,24 +164,24 @@
                                         input-stream-handler
                                         output-stream-handler))))
 
-;; TODO: think about core.async
 (defn- send-gossip
-  [max-hotness news [ip-addr port]]
-  (try
-    (with-open [socket (Socket. ip-addr port)
-                reader (BufferedReader. (InputStreamReader. (.getInputStream socket)))
-                writer (PrintWriter. (.getOutputStream socket))]
-      (doto writer
-        (.println (cheshire/generate-string news))
-        (.flush)))
-    (catch Exception e
-      (println :exception (.getMessage e))
-      (println "Seems dead: " [ip-addr port])
-      ;; TODO: pull side-effects out, pass fn in (to allow for multiple implementations and general decomplection)
-      (swap! #'peers #(merge-with merge
-                                %
-                                {:states {[ip-addr port] :dead}
-                                 :hotness {[ip-addr port] max-hotness}})))))
+  "Send 'my-state to 'peer-host-port, calling 'handler-fn with 'true
+  and the 'peer-host-port if the connection succeeds, and 'false and
+  the 'peer-host-port if the connection times out."
+  [handler-fn my-state peer-host-port]
+  (let [[host port] (split-hostport peer-host-port)]
+    (try
+      (with-open [socket (Socket. host port)
+                  _reader (BufferedReader. (InputStreamReader. (.getInputStream socket)))
+                  writer (PrintWriter. (.getOutputStream socket))]
+        (doto writer
+          (.println (pr-str my-state))
+          (.flush))
+        (handler-fn true peer-host-port))
+      (catch Exception e
+        (util/debug :sending-exception (.getMessage e))
+        (println "Seems dead: " [host port])
+        (handler-fn false peer-host-port)))))
 
 (defn choose-news
   "Choose all the latest hot news that I have in my little bird-brain.
