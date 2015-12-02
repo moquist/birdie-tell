@@ -106,6 +106,35 @@
                difference
                identified-peer-host-ports)))
 
+(defn- merge-peer-state
+  "Take my current 'my-state map and 'peer-state, a complete state map from a peer.
+
+  Merge the :peers from 'peer-state with :peers in 'my-state, ignoring
+  myself, adding any new :identified peers, and updating :data,
+  :version, and :host-port for :identified peers with higher versions
+  than I have.
+
+  TODO: consider :name changes
+  TODO: think about merging :potential peers in case this peer can reach a host-port another peer cannot
+  "
+  [my-state peer-state]
+  (util/debug :merge-peer-state :my-state my-state :peer-state peer-state)
+  (let [my-uuid (:uuid my-state)
+        peer-identified-peers (-> peer-state :peers :identified (dissoc my-uuid))
+        my-identified-peers (-> my-state :peers :identified)
+        version-check (fn [old new]
+                        (if (>= (:version old) (:version new))
+                          old
+                          (merge old (select-keys new [:data :version :host-port]))))
+        dirty-state (assoc-in my-state
+                              [:peers :identified]
+                              (merge-with version-check
+                                          my-identified-peers
+                                          peer-identified-peers))
+        new-state (clean-potential-peers dirty-state)]
+    (util/debug :new-state new-state)
+    new-state))
+
 (defn- update-peer!
   "Update a peer's state in the specified 'peers atom.
 
