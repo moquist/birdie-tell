@@ -1,5 +1,6 @@
 (ns birdie-tell.util
   (require [clojure.pprint :refer [pprint]]
+           [clojure.string :as str]
            [clojure.tools.cli :as cli]))
 
 (def debug? (atom false))
@@ -49,3 +50,19 @@
                           (System/exit 1))
       (:help options) (do (println summary) (System/exit 0))
       :else options)))
+
+(defn split-hostport
+  "Split a host:port pair into a vector with a string host and an integer port.
+
+  Example:
+      (split-hostport \"hostname:1234\")
+      ;=> [\"hostname\" 1234]"
+  [host-port]
+  (let [[ip-addr port & trash] (str/split host-port #":")
+        port (Integer/parseInt port)]
+    [ip-addr port]))
+
+(defn join-hostport
+  "Join a host, port pair into a host:port string."
+  [host port]
+  (str host ":" port))

@@ -52,22 +52,6 @@
                   :peers {}
                   }))
 
-(defn- split-hostport
-  "Split a host:port pair into a vector with a string host and an integer port.
-
-  Example:
-      (split-hostport \"hostname:1234\")
-      ;=> [\"hostname\" 1234]"
-  [host-port]
-  (let [[ip-addr port & trash] (str/split host-port #":")
-        port (Integer/parseInt port)]
-    [ip-addr port]))
-
-(defn- join-hostport
-  "Join a host, port pair into a host:port string."
-  [host port]
-  (str host ":" port))
-
 (defn- merge-my-data
   "Take my state map and 'new-data.
 
@@ -161,7 +145,7 @@
   and the 'peer-host-port if the connection succeeds, and 'false and
   the 'peer-host-port if the connection times out."
   [handler-fn my-state peer-host-port]
-  (let [[host port] (split-hostport peer-host-port)]
+  (let [[host port] (util/split-hostport peer-host-port)]
     (try
       (with-open [socket (Socket. host port)
                   _reader (BufferedReader. (InputStreamReader. (.getInputStream socket)))
