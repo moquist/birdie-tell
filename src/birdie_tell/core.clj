@@ -281,6 +281,34 @@
   (let [wait-range (- max-rest-time min-rest-time)]
     #(Thread/sleep (+ min-rest-time (rand-int wait-range)))))
 
+(defn calculate-propagation-steps
+  "Calculate the probabilistic number of gossip steps it will take for
+  data from one peer to reach every other cluster member in a cluster
+  of size 'cluster-size. When the probable number of peers is within
+  'tolerance of 'cluster-size, consider the propagation to be complete.
+
+  'tolerance defaults to 0.1.
+
+  Examples:
+    (calculate-propagation-steps 100)
+    ;;=> 10
+    (calculate-propagation-steps 1000)
+    ;;=> 14
+    (calculate-propagation-steps 10000)
+    ;;=> 17
+  "
+  ([cluster-size] (calculate-propagation-steps cluster-size 0.1))
+  ([cluster-size tolerance] (calculate-propagation-steps cluster-size tolerance 1 0))
+  ([cluster-size tolerance knowers steps]
+   (util/debug :cluster-size cluster-size :tolerance tolerance :knowers knowers :steps steps)
+   (if (<= cluster-size (+ knowers tolerance))
+     steps
+     (recur
+      cluster-size
+      tolerance
+      (+' knowers (*' knowers (/ (-' (dec cluster-size) (dec knowers)) (dec cluster-size))))
+      (inc steps)))))
+
 (defn main [& args]
   (let [{:keys [debug host-port input-file live-percentage maximum-gossip-wait minimum-gossip-wait name peer uuid]}
         (util/parse-opts args)]
