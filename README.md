@@ -26,13 +26,15 @@ propagate.
 
 ## Gossip Protocols
 
+<a href="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67"><img align="right" src="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67" width="400"/></a>
+
 Gossip protocols are named for a metaphor; imagine people gathering
 around a water cooler and exchanging the latest news with random
 people who happen to visit the cooler at the same moment.
 
-<a href="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67"><img align="right" src="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67" width="400"/></a>
-
-Gossip protocols can make use of distributed programming tools such as [vector clocks](https://en.wikipedia.org/wiki/Vector_clock) to achieve consensus on shared state, but I haven't gotten that far, yet!
+Gossip protocols can make use of distributed programming tools such as
+[vector clocks](https://en.wikipedia.org/wiki/Vector_clock) to achieve
+consensus on shared state, but I haven't gotten that far, yet!
 
 ### Lessons learned:
 1. Distributed systems are harder than they seem, and
