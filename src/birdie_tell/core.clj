@@ -76,6 +76,23 @@
   [host port]
   (str host ":" port))
 
+(defn- merge-my-data
+  "Take my state map and 'new-data.
+
+  If 'new-data is equal to my state :data, return the state
+  unchanged.
+
+  If 'new-data is different than my current :data, assoc the new
+  :data, 'inc my :version, and return the new state."
+  [current-state new-data]
+  (let [my-path [:peers :identified (:uuid current-state)]
+        my-state (get-in current-state my-path)]
+    (if (= (:data my-state) new-data)
+      current-state
+      (assoc-in current-state
+                my-path
+                (merge my-state {:data new-data :version (inc (:version my-state))})))))
+
 (defn- update-peer!
   "Update a peer's state in the specified 'peers atom.
 
