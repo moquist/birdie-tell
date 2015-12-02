@@ -30,7 +30,7 @@ Gossip protocols are named for a metaphor; imagine people gathering
 around a water cooler and exchanging the latest news with random
 people who happen to visit the cooler at the same moment.
 
-<a href="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67"><img align="right" src="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67" width="60"/></a>
+<a href="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67"><img align="right" src="https://camo.githubusercontent.com/9c623792929f54b6ec656ee718fec7ccc1a42892/68747470733a2f2f7261772e6769746875622e636f6d2f737562737461636b2f6e6f6465666573742d323031322f6d61737465722f696d616765732f676f737369705f70726f746f636f6c2e706e67" width="400"/></a>
 
 Gossip protocols can make use of distributed programming tools such as [vector clocks](https://en.wikipedia.org/wiki/Vector_clock) to achieve consensus on shared state, but I haven't gotten that far, yet!
 
@@ -88,12 +88,14 @@ birdie-tell.core=> (time (calculate-propagation-steps 10000))
 ```
 
 Meetup todo:
+
 1. break up namespaces
 1. handle thread harvesting
-2. write up problems & correct gossip implementations
-3. write up problems to solve
+1. write up problems & correct gossip implementations
+1. write up problems to solve
 
 TODOs:
+
 1. detect and :down peers *nobody's* heard from in a while
 1. TTL to avoid passing *all* data on every time
 1. Implement 'output-stream-handler in order to reply to gossip with gossip, rather than just receiving gossip silently.
