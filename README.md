@@ -89,6 +89,8 @@ birdie-tell.core=> (time (calculate-propagation-steps 10000))
 17
 ```
 
+17 randomized gossip rounds to propagate through a 10000-node cluster! birdie-tell is clearly low-latency, but the tradeoff is that there's a *lot* of redundant data exchanged.
+
 Meetup todo:
 
 1. break up namespaces
