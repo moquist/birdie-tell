@@ -135,6 +135,22 @@
     (util/debug :new-state new-state)
     new-state))
 
+(defn- parse-gossip
+  "Take a 'gossip-handler, an 'input-stream-handler, an
+  'output-stream-handler, an 'input-stream, and an 'output-stream.
+
+  Parse 'input-stream EDN into a map of gossiped state, and call
+  'gossip-handler with the parsed state. Then call
+  'output-stream-handler with 'output-stream.
+
+  Return nil."
+  [gossip-handler input-stream-handler output-stream-handler input-stream output-stream]
+  (let [input-string (input-stream-handler input-stream)
+        peer-state (edn/read-string input-string)]
+    (gossip-handler peer-state)
+    (output-stream-handler output-stream)
+    nil))
+
 (defn- update-peer!
   "Update a peer's state in the specified 'peers atom.
 
