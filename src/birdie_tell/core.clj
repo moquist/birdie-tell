@@ -268,6 +268,15 @@
           (send-gossip (partial handle-peer-liveness state) @state peer)))
       (Thread/sleep (+ min-rest-time (rand-int wait-range))))))
 
+(defn- do-self-updating!
+  "Parse 'data-file as EDN every 'reread-delay-ms, and update :data in
+  'state (with version bumps) when 'data-file changes."
+  [data-file state reread-delay-ms]
+  (while true
+      (let [data (edn/read-string (slurp data-file))]
+        (swap! state merge-my-data data))
+      (Thread/sleep reread-delay-ms)))
+
 (defn main
   "'max-hotness: how many times do I tell another peer about this peer?
   'live-percentage: what percentage of the time do I bias toward talking to peers I think are :alive, instead of :dead?"
