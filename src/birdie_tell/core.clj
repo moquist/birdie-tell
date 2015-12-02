@@ -1,9 +1,13 @@
 (ns birdie-tell.core
-  "This ns implements a simple Gossip protocol, where peers tell each
-  other about each other, and whether each other peer appears to be
-  :alive or :dead right now.
+  "This ns implements a simple Gossip protocol, where peers each have
+  a map of data they own, and they gossip to each other to pass along
+  their own data.
 
-  That's it; this doesn't do any actual work at this point."
+  Each peer tracks versions of its data so that recipients of gossip
+  can merge newer versions safely.
+
+  Each peer rereads its data regularly from a specified EDN data
+  file. This data is arbitrary."
   (:require [server.socket :as socket]
             [cheshire.core :as cheshire]
             [clojure.edn :as edn]
