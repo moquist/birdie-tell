@@ -277,22 +277,32 @@
         (swap! state merge-my-data data))
       (Thread/sleep reread-delay-ms)))
 
-(defn main
-  "'max-hotness: how many times do I tell another peer about this peer?
-  'live-percentage: what percentage of the time do I bias toward talking to peers I think are :alive, instead of :dead?"
-  [max-hotness live-percentage listen-port my-host-port & initial-peers]
-  (swap! #'peers assoc
-         :states
-         (reduce (fn [r x] (assoc r (split-hostport x) :alive))
-                 {}
-                 initial-peers))
-  (println :main-peers @#'peers)
-  (let [[my-ip-addr my-port] (split-hostport my-host-port)
-        listen-port (Integer/parseInt listen-port)
-        max-hotness (Integer/parseInt max-hotness)
-        live-percentage (Integer/parseInt live-percentage)]
-    (listen max-hotness listen-port)
-    (mingle live-percentage max-hotness 1000 5000 my-ip-addr my-port)))
+(defn main [& args]
+  (let [{:keys [peer host-port name live-percentage input-file debug uuid]} (util/parse-opts args)]
+    (if debug (reset! util/debug? true))
+    (let [uuid (or uuid (util/uuid))
+          [_ my-port] (split-hostport host-port)
+          peer (if peer #{peer} #{})]
+
+      ;; Init.
+      (swap! state assoc
+             :uuid uuid ; my self-reference into [:peers :identified]
+             :peers {:potential peer ; TODO: allow more than one potential peer
+                     :identified {uuid {:version 0
+                                        :name name
+                                        :uuid uuid
+                                        :host-port host-port}}})
+      (listen #(swap! state merge-peer-state %) my-port)
+
+      (.start (Thread. #(do-self-updating! input-file state 1000)))
+
+      ;; TODO: fix state refs to be to the var, & resolve the var
+      (.start (Thread. #(start-gossipping! live-percentage 1000 10000 state)))
+
+      ;; Output my state each second to watch for changes.
+      (while true
+        (pprint @state) (prn)
+        (Thread/sleep 1000)))))
 
 
 (comment
