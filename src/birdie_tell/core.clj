@@ -197,10 +197,17 @@
     nil))
 
 (defn- listen
-  "Start listening on 'port, calling 'receive-gossip with 'max-hotness
-  on connect."
-  [max-hotness port]
-  (socket/create-server port (partial receive-gossip max-hotness)))
+  "Start listening on 'port, calling 'parse-gossip with
+  'gossip-handler and input/output handlers on connect."
+  [gossip-handler port]
+  (let [input-stream-handler (fn [input-stream]
+                               (with-open [rdr (io/reader input-stream)]
+                                 (reduce str (line-seq rdr))))
+        output-stream-handler (fn [output-stream] nil)]
+    (socket/create-server port (partial parse-gossip
+                                        gossip-handler
+                                        input-stream-handler
+                                        output-stream-handler))))
 
 ;; TODO: think about core.async
 (defn- send-gossip
