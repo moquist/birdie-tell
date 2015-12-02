@@ -72,7 +72,7 @@ to 100.
 N.B.: This is a first draft of these calculations.
 
 1. Peer A gossips its own New Data to peer B. Now two peers have New Data.
-1. A & B randomly select two new peers to receive gossip. If peers ever gossipped to themselves, the probability that each would choose a peer that doesn't have New Data would be `(/ (- n 2) n)`. But since they never gossip to themselves, the probability is `(/ (- (dec n) 1) (dec n))`. Multiplying by 2, `(* 2 (/ (- (dec n) 1) (dec n)))` more peers probably have New Data, for a total of `(+ 2 (* (/ (- (dec n) 1) (dec n))))`; we'll say *x* is the number of peers that now have New Data.
+1. A & B randomly select two new peers to receive gossip. If peers ever gossipped to themselves, the probability that each would choose a peer that doesn't have New Data would be `(/ (- n 2) n)`. But since they never gossip to themselves, the probability is `(/ (- (dec n) 1) (dec n))`. Multiplying by 2, `(* 2 (/ (- (dec n) 1) (dec n)))` more peers probably have New Data, for a total of `(+ 2 (* 2 (/ (- (dec n) 1) (dec n))))`; we'll say *x* is the number of peers that now have New Data.
 1. *x* peers randomly select *x* other peers to receive gossip. The probability that each will choose a peer that doesn't have New Data is `(/ (- (dec n) (dec x)) (dec n))`, or `(* x (/ (- (dec n) (dec x)) (dec n)))`, for a new total of `(+ x (* x (/ (- (dec n) (dec x)) (dec n))))`.
 
 This calculation is generalized in `birdie-tell.core/calculate-propagation-steps`.
