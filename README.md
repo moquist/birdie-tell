@@ -141,6 +141,7 @@ After they all start showing that they're all :alive, `CTRL-c` one or two (or th
 1. http://doc.akka.io/docs/akka/snapshot/common/cluster.html
 1. https://github.com/edwardcapriolo/gossip
 1. http://courses.washington.edu/css434/students/Gossip.pdf
+1. https://www.cs.cornell.edu/home/rvr/papers/GossipFD.pdf
 
 ## TODO
 
