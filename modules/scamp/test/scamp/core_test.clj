@@ -3,21 +3,32 @@
             [scamp.core :as core]
             [schema.core :as s]))
 
+(defn- purge-envelope-id [envelope]
+  (butlast envelope))
+
+(defn- purge-world-envelope-ids [world]
+  (update world :message-envelopes #(map purge-envelope-id %)))
+
 (deftest test-subscribe
   (is (= (-> core/new-world
              (core/add-new-node (core/node-contact-address->node "node-id0"))
              (core/subscribe "node-id1" "node-id0")
-             (dissoc :config))
+             (dissoc :config)
+             purge-world-envelope-ids)
          {:message-envelopes
-          '([:message-envelope "node-id0" :forwarded-subscription "node-id1"]),
+          '([:message-envelope
+             "node-id0"
+             :forwarded-subscription
+             "node-id1"]),
           :network
           {"node-id1"
            {:self {:id "node-id1"}, :upstream #{}, :downstream #{"node-id0"}},
            "node-id0" {:self {:id "node-id0"}, :upstream #{}, :downstream #{}}}})))
 
 (deftest forward-subscription-test
-  (let [result (core/forward-subscription #{"stuffy-node" "stuffier-node"}
-                                          "allergen-free-node")]
+  (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
+                                               "allergen-free-node")
+                    (map purge-envelope-id))]
     (is (#{[[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]
            [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]}
          result))))

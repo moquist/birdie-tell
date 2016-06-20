@@ -4,6 +4,13 @@
 
 (s/set-fn-validation! true)
 
+(def envelope-id-counter (atom 0))
+
+(defn- get-envelope-id
+  "TODO: replace with UUIDs"
+  []
+  (str (swap! envelope-id-counter inc)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema definitions
 (def NodeContactAddressSchema
@@ -46,11 +53,14 @@
   (s/pred #(some nil?
                  [(s/check SubscriptionSchema %)])))
 
+(def MessageEnvelopeIdSchema s/Str)
+
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
    (s/one NodeContactAddressSchema "envelope destination")
    (s/one MessageTypeSchema "envelope message type")
-   (s/one MessageBodySchema "envelope body")])
+   (s/one MessageBodySchema "envelope body")
+   (s/one MessageEnvelopeIdSchema "envelope id")])
 
 (def WorldConfigSchema
   {:connection-redundancy s/Int
@@ -116,8 +126,6 @@ TODO:
 (s/defn node->node-contact-address :- NodeContactAddressSchema
   "Take a 'node, and return the contact address for the node.
 
-  TODO: schematize (or clojure.spec) node-contact-address types
-
   E.g., a node contact address in a simulation 'world might just be
   the node's name, whereas a node contact address in a TCP/IP gossip
   cluster might be a map with an IP address and a port number."
@@ -165,7 +173,8 @@ TODO:
     [[:message-envelope
       (node->node-contact-address (:self node))
       :forwarded-subscription
-      subscription]]
+      subscription
+      (get-envelope-id)]]
 
     ;; Forward subscription to :downstream.
     (let [downstream (seq downstream)
@@ -174,7 +183,11 @@ TODO:
                               (range (:connection-redundancy config)))]
       (map
        (fn [node-id]
-         [:message-envelope node-id :forwarded-subscription subscription])
+         [:message-envelope
+          node-id
+          :forwarded-subscription
+          subscription
+          (get-envelope-id)])
        downstream+))))
 
 (s/defn do-probability :- s/Bool
@@ -192,7 +205,11 @@ TODO:
   {:post [(vector? %)]}
   (if (empty? downstream)
     []
-    [[:message-envelope (rand-nth (seq downstream)) :forwarded-subscription subscription]]))
+    [[:message-envelope
+      (rand-nth (seq downstream))
+      :forwarded-subscription
+      subscription
+      (get-envelope-id)]]))
 
 (defn handle-add-upstream
   "Take a node (?) and a new upstream 'id, and add the upstream node to this node's :upstream."
