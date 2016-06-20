@@ -226,9 +226,6 @@ TODO:
   [logging-config
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscriber-contact-address :- NodeContactAddressSchema]
-  ;; TODO: use clojure.spec
-  {:pre [(string? subscriber-contact-address)]
-   :post [(vector? %) (-> % first map?) (-> % second vector?)]}
   (timbre/log* logging-config :trace
                :handle-forwarded-subscription
                :node node
