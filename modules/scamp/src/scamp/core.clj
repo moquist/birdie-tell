@@ -6,7 +6,7 @@
 
 (def envelope-id-counter (atom 0))
 
-(defn- get-envelope-id
+(defn ^:dynamic *get-envelope-id*
   "TODO: replace with UUIDs"
   []
   (str (swap! envelope-id-counter inc)))
