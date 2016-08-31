@@ -164,17 +164,14 @@ TODO:
 (s/defn handle-new-subscription :- [MessageEnvelopeSchema]
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
-  nodes. If :downstream is empty, forward the subscription to 'node."
+  nodes. If :downstream is empty, do nothing."
   [config :- WorldConfigSchema
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscription :- SubscriptionSchema]
   (if (empty? downstream)
-    ;; There is no 'downstream; forward subscription to :self.
-    [[:message-envelope
-      (node->node-contact-address (:self node))
-      :forwarded-subscription
-      subscription
-      (get-envelope-id)]]
+    ;; There is no 'downstream. Do nothing, because the 'subscription
+    ;; node will already have 'node in its :downstream.
+    []
 
     ;; Forward subscription to :downstream.
     (let [downstream (seq downstream)
