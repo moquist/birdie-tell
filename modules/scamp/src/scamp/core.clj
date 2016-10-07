@@ -12,6 +12,16 @@
   (str (swap! envelope-id-counter inc)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Custom randomization (for predictable testing)
+(def ^:dynamic *rand* rand)
+
+(defn- ^Integer rand-int* [n]
+  (int (*rand* n)))
+
+(defn- rand-nth* [coll]
+  (nth coll (rand-int* (count coll))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema definitions
 (def NodeContactAddressSchema
   s/Str)
@@ -175,7 +185,7 @@ TODO:
 
     ;; Forward subscription to :downstream.
     (let [downstream (seq downstream)
-          downstream+ (reduce (fn [x _] (conj x (rand-nth downstream)))
+          downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
                               downstream
                               (range (:connection-redundancy config)))]
       (map
@@ -190,7 +200,7 @@ TODO:
 (s/defn do-probability :- s/Bool
   "'rand is inclusive of 0 and exclusive of 1, so our test should not have '=."
   [cutoff :- ProbabilitySchema]
-  (< (rand) cutoff))
+  (< (*rand*) cutoff))
 
 (s/defn forward-subscription :- [MessageEnvelopeSchema]
   "Take a node's 'downstream map and a new 'subscription.
@@ -203,7 +213,7 @@ TODO:
   (if (empty? downstream)
     []
     [[:message-envelope
-      (rand-nth (seq downstream))
+      (rand-nth* (seq downstream))
       :forwarded-subscription
       subscription
       (get-envelope-id)]]))
