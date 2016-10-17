@@ -35,7 +35,8 @@
 (def NetworkedNodeSchema
   {:self NodeCoreSchema
    :upstream NodeNeighborsSchema
-   :downstream NodeNeighborsSchema})
+   :downstream NodeNeighborsSchema
+   :messages-seen {MessageEnvelopeIdSchema s/Int}})
 
 (def MessageTypeSchema
   (s/enum :forwarded-subscription))
@@ -74,6 +75,7 @@
 
 (def WorldConfigSchema
   {:connection-redundancy s/Int
+   :message-dup-drop-after s/Int
    :logging {s/Keyword s/Any}})
 
 (def WorldSchema
@@ -99,6 +101,7 @@ TODO:
 (def default-config
   {;; :c :connection-redundancy
    :connection-redundancy 2 ;; Emperically determined by [1]
+   :message-dup-drop-after 10 ;; Empirically determined by [1]
    :logging (assoc timbre/*config*
                    :level :debug)
    }
@@ -147,12 +150,19 @@ TODO:
    :post [(string? %)]}
   (:id node))
 
+(s/defn networked-node->node-contact-address :- NodeContactAddressSchema
+  [node :- NetworkedNodeSchema]
+  (-> node
+      :self
+      node->node-contact-address))
+
 (s/defn node-contact-address->node :- NetworkedNodeSchema
   "Take a node-contact-address, return a networked-node structure."
   [node-contact-address :- NodeContactAddressSchema]
   {:self {:id node-contact-address}
    :upstream #{}
-   :downstream #{}})
+   :downstream #{}
+   :messages-seen {}})
 
 (s/defn init-new-subscriber :- NetworkedNodeSchema
   "Take a 'subscriber-address for a new subscriber, and the
@@ -203,12 +213,14 @@ TODO:
   (< (*rand*) cutoff))
 
 (s/defn forward-subscription :- [MessageEnvelopeSchema]
-  "Take a node's 'downstream map and a new 'subscription.
+  "Take a node's 'downstream map, a new 'subscription, and the
+  'envelope-id.
 
   Return a seq of message-envelopes that communicate the forwarded
   subscription."
   [downstream :- NodeNeighborsSchema
-   subscription :- SubscriptionSchema]
+   subscription :- SubscriptionSchema
+   envelope-id :- MessageEnvelopeIdSchema]
   {:post [(vector? %)]}
   (if (empty? downstream)
     []
@@ -216,7 +228,7 @@ TODO:
       (rand-nth* (seq downstream))
       :forwarded-subscription
       subscription
-      (get-envelope-id)]]))
+      envelope-id]]))
 
 (defn handle-add-upstream
   "Take a node (?) and a new upstream 'id, and add the upstream node to this node's :upstream."
@@ -232,7 +244,8 @@ TODO:
   Return a vector matching the CommUpdateSchema."
   [logging-config
    {:keys [downstream] :as node} :- NetworkedNodeSchema
-   subscriber-contact-address :- NodeContactAddressSchema]
+   subscriber-contact-address :- NodeContactAddressSchema
+   envelope-id :- MessageEnvelopeIdSchema]
   (timbre/log* logging-config :trace
                :handle-forwarded-subscription
                :node node
@@ -245,7 +258,8 @@ TODO:
      [#_(handle-add-upstream id (:id node))]]
 
     (let [forwarded-subscription-messages (forward-subscription downstream
-                                                                subscriber-contact-address)]
+                                                                subscriber-contact-address
+                                                                envelope-id)]
       (when (empty? forwarded-subscription-messages)
         (throw (ex-info "Failed either to accept or forward subscription"
                         {:node node :subscriber-contact-address subscriber-contact-address})))
@@ -303,20 +317,38 @@ TODO:
 (defn read-mail
   "Take a 'destination-node and a 'message.
 
-  Process the message for 'destination-node and return a tuple of:
-  [new-destination-node [new-message ...]]"
-  [logging-config destination-node [message-type message-body]]
+  Process the message for 'destination-node and return a vector
+  matching 'CommUpdateSchema.
+
+  If this envelope has been seen too many times by 'destination-node
+  (as configured by :message-dup-drop-after in 'config), then ignore
+  the message."
+  [{:keys [logging message-dup-drop-after] :as config}
+   destination-node :- NetworkedNodeSchema
+   [message-type message-body envelope-id]]
   {:post [(vector? %) (-> % first map?) (-> % second vector?)]}
-  (timbre/log* logging-config :trace
+  (timbre/log* logging :trace
                :read-mail
                :destination-node destination-node
                :message-type message-type
-               :message-body message-body)
-  (condp = message-type
-    :forwarded-subscription (handle-forwarded-subscription logging-config
-                                                           destination-node
-                                                           message-body)
-    (println :read-mail "Unknown message type (" message-type "): " message-body)))
+               :message-body message-body
+               :envelope-id envelope-id)
+  (let [destination-node (update-in destination-node [:messages-seen envelope-id] #(if % (inc %) 1))]
+    (if (< (get-in destination-node [:messages-seen envelope-id])
+           message-dup-drop-after)
+      (condp = message-type
+        :add-upstream (handle-add-upstream logging destination-node message-body)
+        :forwarded-subscription (handle-forwarded-subscription logging
+                                                               destination-node
+                                                               message-body
+                                                               envelope-id)
+        (println :read-mail "Unknown message type (" message-type "): " message-body))
+      (do
+        (timbre/log* logging :trace
+                     :read-mail-dropping-dup
+                     :destination-node destination-node
+                     :envelope-id envelope-id)
+        [destination-node []]))))
 
 (defn do-comm
   "Take 'world. Process one message. Return new 'world."
