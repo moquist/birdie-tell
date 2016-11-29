@@ -3,6 +3,10 @@
             [scamp.core :as core]
             [schema.core :as s]))
 
+(defn- testing-rand*
+  ([] 0.4)
+  ([n] (* n (testing-rand*))))
+
 (defn- purge-envelope-id [envelope]
   (butlast envelope))
 
