@@ -8,10 +8,10 @@
   ([n] (* n (testing-rand*))))
 
 (defn- purge-envelope-id [envelope]
-  (butlast envelope))
+  (vec (butlast envelope)))
 
 (defn- purge-world-envelope-ids [world]
-  (update world :message-envelopes #(map purge-envelope-id %)))
+  (update world :message-envelopes #(mapv purge-envelope-id %)))
 
 (deftest test-subscribe
   (is (= (-> core/new-world
