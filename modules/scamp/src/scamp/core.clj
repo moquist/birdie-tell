@@ -211,7 +211,7 @@ TODO:
           node-id
           :forwarded-subscription
           subscription
-          (get-envelope-id)])
+          (*get-envelope-id*)])
        downstream+))))
 
 (s/defn do-probability :- s/Bool
