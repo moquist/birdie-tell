@@ -347,8 +347,8 @@ TODO:
         (add-new-node new-node)
         (add-messages new-messages))))
 
-(defn read-mail
-  "Take a 'destination-node and a 'message.
+(s/defn read-mail :- CommUpdateSchema
+  "Take a 'destination-node and a message.
 
   Process the message for 'destination-node and return a vector
   matching 'CommUpdateSchema.
