@@ -13,21 +13,24 @@
 (defn- purge-world-envelope-ids [world]
   (update world :message-envelopes #(mapv purge-envelope-id %)))
 
-(deftest test-subscribe
+(deftest subscribe-new-node-test
   (is (= (-> core/new-world
              (core/add-new-node (core/node-contact-address->node "node-id0"))
-             (core/subscribe "node-id1" "node-id0")
+             (core/subscribe-new-node "node-id1" "node-id0")
              (dissoc :config)
              purge-world-envelope-ids)
-         {:message-envelopes
-          '([:message-envelope
-             "node-id0"
-             :forwarded-subscription
-             "node-id1"]),
+         {:message-envelopes [],
           :network
-          {"node-id1"
-           {:self {:id "node-id1"}, :upstream #{}, :downstream #{"node-id0"}},
-           "node-id0" {:self {:id "node-id0"}, :upstream #{}, :downstream #{}}}})))
+          {"node-id0"
+           {:self {:id "node-id0"},
+            :upstream #{"node-id1"},
+            :downstream #{},
+            :messages-seen {}},
+           "node-id1"
+           {:self {:id "node-id1"},
+            :upstream #{},
+            :downstream #{"node-id0"},
+            :messages-seen {}}}})))
 
 (deftest forward-subscription-test
   (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
