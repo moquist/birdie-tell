@@ -37,6 +37,8 @@
   ;; TODO: decouple contact address and node ID.
   #{NodeContactAddressSchema})
 
+(def MessageEnvelopeIdSchema s/Str)
+
 (def NetworkedNodeSchema
   {:self NodeCoreSchema
    :upstream NodeNeighborsSchema
@@ -69,8 +71,6 @@
 (def MessageBodySchema
   (s/pred #(some nil?
                  [(s/check SubscriptionSchema %)])))
-
-(def MessageEnvelopeIdSchema s/Str)
 
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
