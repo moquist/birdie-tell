@@ -22,6 +22,10 @@
   (nth coll (rand-int* (count coll))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn- concatv [coll & colls]
+  (vec (apply concat coll colls)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema definitions
 (def NodeContactAddressSchema
   s/Str)
@@ -30,6 +34,7 @@
   {:id NodeContactAddressSchema})
 
 (def NodeNeighborsSchema
+  ;; TODO: decouple contact address and node ID.
   #{NodeContactAddressSchema})
 
 (def NetworkedNodeSchema
@@ -84,7 +89,8 @@
    :network {NodeContactAddressSchema NetworkedNodeSchema}})
 
 (def CommUpdateSchema
-  [(s/one NetworkedNodeSchema "networked node")
+  [(s/one NetworkedNodeSchema "networked node (recipient of processed message)")
+   ;; zereo or more new messages
    [MessageEnvelopeSchema]])
 
 (def ProbabilitySchema
