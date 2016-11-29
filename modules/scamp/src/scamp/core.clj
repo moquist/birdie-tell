@@ -411,14 +411,4 @@ TODO:
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
 
-
-
-  (-> new-world
-      (add-node (node-contact-address->node "node-id0"))
-      (subscribe "node-id1" "node-id0")
-      do-comm
-      ;; TODO: add more nodes here, test handle-forwarded-subscription, test forward-subscription, etc.
-      (dissoc :config)
-      clojure.pprint/pprint)
-
   )
