@@ -263,11 +263,11 @@ TODO:
    (*get-envelope-id*)])
 
 (s/defn handle-forwarded-subscription :- CommUpdateSchema
-  "Take a node and a new subscription, and either accept the
-  subscription into :downstream, or forward it to a :downstream
-  node.
+  "Take 'logging-config, a node, a new subscription, and an
+  'envelope-id. Either accept the subscription into :downstream, or
+  forward it to a :downstream node.
 
-  Return a vector matching the CommUpdateSchema."
+  Return a vector matching 'CommUpdateSchema."
   [logging-config
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscriber-contact-address :- NodeContactAddressSchema
@@ -276,12 +276,14 @@ TODO:
                :handle-forwarded-subscription
                :node node
                :subscriber-contact-address subscriber-contact-address)
-  (if (and (not (downstream subscriber-contact-address))
-           ;; The subscription id is not already in node's downstream,
+  (if (and (not= (get-in node [:self :id]) subscriber-contact-address)
+           (not (downstream subscriber-contact-address))
+           ;; The subscription id is not for this node itself, and
+           ;; the subscription id is not already in node's downstream,
            ;; so check the probability that we add it to this node.
            (do-probability (subscription-acceptance-probability downstream)))
     [(update-in node [:downstream] conj subscriber-contact-address)
-     [#_(handle-add-upstream id (:id node))]]
+     [(notify-add-upstream node subscriber-contact-address)]]
 
     (let [forwarded-subscription-messages (forward-subscription downstream
                                                                 subscriber-contact-address
