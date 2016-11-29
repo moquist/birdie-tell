@@ -306,19 +306,6 @@ TODO:
   (assoc-in world [:network (node->node-contact-address (:self networked-node))]
             networked-node))
 
-#_
-(s/defn init-cluster :- WorldSchema
-  [world :- WorldSchema
-   networked-node :- NetworkedNodeSchema]
-  (-> world
-      (add-new-node node-core)
-      (update-in [:network (:id node-core) :downstream]
-                 conj
-                 (:id node-core))
-      (update-in [:network (:id node-core) :upstream]
-                 conj
-                 (:id node-core))))
-
 (s/defn add-messages :- WorldSchema
   "Given 'world and new messages to add, return 'world with the new
   messages added."
