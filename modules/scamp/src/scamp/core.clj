@@ -311,7 +311,7 @@ TODO:
   messages added."
   [world :- WorldSchema
    new-messages :- [MessageEnvelopeSchema]]
-  (update-in world [:message-envelopes] concat new-messages))
+  (update-in world [:message-envelopes] concatv new-messages))
 
 (s/defn subscribe :- WorldSchema
   "Given 'world, a 'new-node-contact-address for the node that is
