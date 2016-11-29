@@ -397,6 +397,16 @@ TODO:
           (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
           (assoc-in [:network destination-node-id] new-destination-node)))))
 
+(s/defn do-comms :- WorldSchema
+  "Take 'world and 'n. Process up to 'n messages. Return new 'world.
+   If 'world has no :message-envelopes before 'n messages have been
+   processed, 'world is returned immediately."
+  [world :- WorldSchema
+   n :- s/Int]
+  (if (or (zero? n)
+          (empty? (:message-envelopes world)))
+    world
+    (recur (do-comm world) (dec n))))
 
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
