@@ -33,12 +33,13 @@
             :messages-seen {}}}})))
 
 (deftest forward-subscription-test
-  (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
-                                               "allergen-free-node")
-                    (map purge-envelope-id))]
-    (is (#{[[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]
-           [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]}
-         result))))
+  (binding [scamp.core/*rand* testing-rand*]
+    (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
+                                                 "allergen-free-node"
+                                                 "43")
+                      (map purge-envelope-id))]
+      (is (= result
+           [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]])))))
 
 (deftest do-comm-test
   (is (= (-> core/new-world
