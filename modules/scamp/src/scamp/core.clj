@@ -328,19 +328,22 @@ TODO:
    node-contact-address :- NodeContactAddressSchema]
   (get-in world [:network node-contact-address]))
 
-(s/defn subscribe :- WorldSchema
+(s/defn subscribe-new-node :- WorldSchema
   "Given 'world, a 'new-node-contact-address for the node that is
-  subscribing, and a 'networked-node, forward subscription requests
-  from 'networked-node."
+  subscribing, and a 'node, forward subscription requests
+  from 'node."
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
-   networked-node :- NodeContactAddressSchema]
-  (let [new-node (init-new-subscriber new-node-contact-address networked-node)
+   contact-node-address :- NodeContactAddressSchema]
+  (let [contact-node (get-node-from-world world contact-node-address)
+        new-node (init-new-subscriber new-node-contact-address
+                                      contact-node-address)
         new-messages (handle-new-subscription
                       (:config world)
-                      (get-in world [:network networked-node])
+                      contact-node
                       new-node-contact-address)]
     (-> world
+        (update-self contact-node #(update % :upstream conj new-node-contact-address))
         (add-new-node new-node)
         (add-messages new-messages))))
 
