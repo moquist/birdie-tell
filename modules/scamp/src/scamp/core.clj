@@ -383,17 +383,19 @@ TODO:
                      :envelope-id envelope-id)
         [destination-node []]))))
 
-(defn do-comm
+(s/defn do-comm :- WorldSchema
   "Take 'world. Process one message. Return new 'world."
-  [{:keys [config] :as world}]
-  (let [[[_ destination-node-id & message] & message-envelopes] (:message-envelopes world)
-        destination-node (get-in world [:network destination-node-id])
-        [new-destination-node new-message-envelopes] (read-mail (:logging config)
-                                                                destination-node
-                                                                message)]
-    (-> world
-        (assoc :message-envelopes (concat message-envelopes new-message-envelopes))
-        (assoc-in [:network destination-node-id] new-destination-node))))
+  [{:keys [config] :as world} :- WorldSchema]
+  (if (empty? (:message-envelopes world))
+    world
+    (let [[[_ destination-node-id & message] & message-envelopes] (:message-envelopes world)
+          destination-node (get-in world [:network destination-node-id])
+          [new-destination-node new-message-envelopes] (read-mail config
+                                                                  destination-node
+                                                                  message)]
+      (-> world
+          (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
+          (assoc-in [:network destination-node-id] new-destination-node)))))
 
 
 (comment
