@@ -44,7 +44,8 @@
    :messages-seen {MessageEnvelopeIdSchema s/Int}})
 
 (def MessageTypeSchema
-  (s/enum :forwarded-subscription))
+  (s/enum :forwarded-subscription
+          :add-upstream))
 
 (def SubscriptionSchema
   NodeContactAddressSchema)
@@ -236,11 +237,30 @@ TODO:
       subscription
       envelope-id]]))
 
-(defn handle-add-upstream
-  "Take a node (?) and a new upstream 'id, and add the upstream node to this node's :upstream."
-  ;; TODO message envelope? how to get the node here?
-  []
-  (throw (ex-info "handle-add-upstream not yet implemented" {})))
+(s/defn handle-add-upstream :- CommUpdateSchema
+  "Take a node and a new 'upstream-node-contact-address, and return a
+  vector matching CommUpdateSchema."
+  [logging-config
+   node :- NetworkedNodeSchema
+   upstream-node-contact-address :- NodeContactAddressSchema]
+  (timbre/log* logging-config :trace
+               :handle-add-upstream
+               :node node
+               :upstream-node-contact-address upstream-node-contact-address)
+  [(update node :upstream conj upstream-node-contact-address)
+   []])
+
+(s/defn notify-add-upstream :- MessageEnvelopeSchema
+  "Take a new 'upstream-node-contact-address and a 'node, and return
+  an :add-upstream message envelope for
+  'upstream-node-contact-address."
+  [node :- NetworkedNodeSchema
+   upstream-node-contact-address :- NodeContactAddressSchema]
+  [:message-envelope
+   upstream-node-contact-address
+   :add-upstream
+   (get-in node [:self :id])
+   (*get-envelope-id*)])
 
 (s/defn handle-forwarded-subscription :- CommUpdateSchema
   "Take a node and a new subscription, and either accept the
