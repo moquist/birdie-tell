@@ -285,3 +285,15 @@
 
       )))
 
+(deftest notify-add-upstream-test
+  (is (= (-> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+             (core/notify-add-upstream "liebowitz")
+             purge-envelope-id)
+         [:message-envelope "liebowitz" :add-upstream "canticle"])))
+
+(deftest handle-add-upstream-test
+  (is (= (core/handle-add-upstream (:logging core/default-config)
+                                   {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+                                   "liebowitz")
+         [{:self {:id "canticle"}, :upstream #{"liebowitz"}, :downstream #{} :messages-seen {}} []])))
+
