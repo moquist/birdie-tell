@@ -297,3 +297,21 @@
                                    "liebowitz")
          [{:self {:id "canticle"}, :upstream #{"liebowitz"}, :downstream #{} :messages-seen {}} []])))
 
+(deftest update-self-test
+  (let [new-node (core/node-contact-address->node "node-id0")
+        non-networked-node (core/node-contact-address->node "non-networked-node")]
+    (is (= (-> core/new-world
+             (core/add-new-node new-node)
+             (core/update-self new-node #(update % :upstream conj "flimflam"))
+             (dissoc :config)
+             purge-world-envelope-ids)
+           {:message-envelopes []
+            :network
+            {"node-id0"
+             {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))
+
+(comment
+(binding [scamp.core/*rand* testing-rand*]
+                                                                  (for [comm (range 2 252)]
+                                                                       (-> comm-test-world (core/do-comms comm) (dissoc :config) purge-world-envelope-ids)))
+  )
