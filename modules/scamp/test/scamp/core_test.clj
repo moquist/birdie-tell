@@ -18,32 +18,34 @@
   (f))
 
 (deftest subscribe-new-node-test
-  (is (= (-> core/new-world
-             (core/add-new-node (core/node-contact-address->node "node-id0"))
-             (core/subscribe-new-node "node-id1" "node-id0")
-             (dissoc :config)
-             purge-world-envelope-ids)
-         {:message-envelopes [],
-          :network
-          {"node-id0"
-           {:self {:id "node-id0"},
-            :upstream #{"node-id1"},
-            :downstream #{},
-            :messages-seen {}},
-           "node-id1"
-           {:self {:id "node-id1"},
-            :upstream #{},
-            :downstream #{"node-id0"},
-            :messages-seen {}}}})))
+  (scamp-test
+   #(is (= (-> core/new-world
+               (core/add-new-node (core/node-contact-address->node "node-id0"))
+               (core/subscribe-new-node "node-id1" "node-id0")
+               (dissoc :config)
+               purge-world-envelope-ids)
+           {:message-envelopes [],
+            :network
+            {"node-id0"
+             {:self {:id "node-id0"},
+              :upstream #{"node-id1"},
+              :downstream #{},
+              :messages-seen {}},
+             "node-id1"
+             {:self {:id "node-id1"},
+              :upstream #{},
+              :downstream #{"node-id0"},
+              :messages-seen {}}}}))))
 
 (deftest forward-subscription-test
-  (binding [scamp.core/*rand* testing-rand*]
-    (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
-                                                 "allergen-free-node"
-                                                 "43")
-                      (map purge-envelope-id))]
-      (is (= result
-           [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]])))))
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [result (->> (core/forward-subscription #{"stuffy-node" "stuffier-node"}
+                                                   "allergen-free-node"
+                                                   "43")
+                        (map purge-envelope-id))]
+        (is (= result
+               [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]))))))
 
 (def comm-test-world
   (-> core/new-world
@@ -92,29 +94,33 @@
                   :messages-seen {}}}}))))))
 
 (deftest notify-add-upstream-test
-  (is (= (-> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-             (core/notify-add-upstream "liebowitz")
-             purge-envelope-id)
-         [:message-envelope "liebowitz" :add-upstream "canticle"])))
+  (scamp-test
+   #(is (= (-> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+               (core/notify-add-upstream "liebowitz")
+               purge-envelope-id)
+           [:message-envelope "liebowitz" :add-upstream "canticle"]))))
 
 (deftest handle-add-upstream-test
-  (is (= (core/handle-add-upstream (:logging core/default-config)
-                                   {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-                                   "liebowitz")
-         [{:self {:id "canticle"}, :upstream #{"liebowitz"}, :downstream #{} :messages-seen {}} []])))
+  (scamp-test
+   #(is (= (core/handle-add-upstream (:logging core/default-config)
+                                     {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+                                     "liebowitz")
+           [{:self {:id "canticle"}, :upstream #{"liebowitz"}, :downstream #{} :messages-seen {}} []]))))
 
 (deftest update-self-test
-  (let [new-node (core/node-contact-address->node "node-id0")
-        non-networked-node (core/node-contact-address->node "non-networked-node")]
-    (is (= (-> core/new-world
-             (core/add-new-node new-node)
-             (core/update-self new-node #(update % :upstream conj "flimflam"))
-             (dissoc :config)
-             purge-world-envelope-ids)
-           {:message-envelopes []
-            :network
-            {"node-id0"
-             {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))
+  (scamp-test
+   (fn []
+     (let [new-node (core/node-contact-address->node "node-id0")
+           non-networked-node (core/node-contact-address->node "non-networked-node")]
+       (is (= (-> core/new-world
+                  (core/add-new-node new-node)
+                  (core/update-self new-node #(update % :upstream conj "flimflam"))
+                  (dissoc :config)
+                  purge-world-envelope-ids)
+              {:message-envelopes []
+               :network
+               {"node-id0"
+                {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))))
 
 (comment
 (binding [scamp.core/*rand* testing-rand*]
