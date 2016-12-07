@@ -11,6 +11,9 @@
   []
   (str (swap! envelope-id-counter inc)))
 
+(defn reset-envelope-ids! []
+  (reset! envelope-id-counter 0))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Custom randomization (for predictable testing)
 (def ^:dynamic *rand* rand)
