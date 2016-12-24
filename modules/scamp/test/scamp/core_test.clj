@@ -21,6 +21,7 @@
 
 (defn scamp-test [f]
   (core/reset-envelope-ids!)
+  (reset-rand-state!)
   (f))
 
 (deftest subscribe-new-node-test
