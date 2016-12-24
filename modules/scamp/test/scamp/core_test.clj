@@ -54,12 +54,6 @@
         (is (= result
                [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]))))))
 
-(def comm-test-world
-  (-> core/new-world
-      (core/add-new-node (core/node-contact-address->node "node-id0"))
-      (core/subscribe-new-node "node-id1" "node-id0")
-      (core/subscribe-new-node "node-id2" "node-id1")
-      (core/subscribe-new-node "node-id3" "node-id2")))
 
 (deftest do-comm-test
   (scamp-test
