@@ -103,7 +103,6 @@
 "
 TODO:
   * distinguish better between node contact info (network address, map entry in (:network world)) and node itself
-  * add message-envelope UUIDs so nodes can count duplicates of forwarded subscriptions
 "
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,19 +118,21 @@ TODO:
 
 (def sample-node
   {:self {:id "node-id5"
-          :host "127.0.0.1"
-          :port 2005}
+          ;; :host "127.0.0.1"
+          ;; :port 2005
+          }
 
-   :partial-view :downstream
-   :local-view :downstream
+   ;; :partial-view :downstream
+   ;; :local-view :downstream
    :downstream #{"node-id1" ; node-contact-address for node-id1
                  "node-id2" ; node-contact-address for node-id2
                  }
 
-   :in-view :upstream
+   ;; :in-view :upstream
    :upstream #{"node-id3" ; node-contact-address for node-id3
                "node-id4" ; node-contact-address for node-id4
-               }})
+               }
+   :messages-seen {}})
 
 (def sample-subscription-request
   {:new-node-contact-address "node-id6"
@@ -143,7 +144,8 @@ TODO:
    :config default-config
    :network {"node-id0" {:self {:id "node-id0"}
                          :downstream #{}
-                         :upstream #{}}
+                         :upstream #{}
+                         :messages-seen {}}
              "node-id1" sample-node}})
 
 (s/defn node->node-contact-address :- NodeContactAddressSchema
@@ -369,7 +371,9 @@ TODO:
                :message-type message-type
                :message-body message-body
                :envelope-id envelope-id)
-  (let [destination-node (update-in destination-node [:messages-seen envelope-id] #(if % (inc %) 1))]
+  (let [destination-node (update-in destination-node
+                                    [:messages-seen envelope-id]
+                                    #(if % (inc %) 1))]
     (if (< (get-in destination-node [:messages-seen envelope-id])
            message-dup-drop-after)
       (condp = message-type
@@ -378,7 +382,11 @@ TODO:
                                                                destination-node
                                                                message-body
                                                                envelope-id)
-        (println :read-mail "Unknown message type (" message-type "): " message-body))
+        (timbre/log* logging :error
+                     :read-mail-unknown-message-type
+                     :destination-node destination-node
+                     :message-type message-type
+                     :message-body message-body))
       (do
         (timbre/log* logging :trace
                      :read-mail-dropping-dup
