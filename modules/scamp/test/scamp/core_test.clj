@@ -133,6 +133,18 @@
                {"node-id0"
                 {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))))
 
+(s/defn do-comms :- core/WorldSchema
+  "Take 'world and 'n. Process up to 'n messages. Return new 'world.
+   If 'world has no :message-envelopes before 'n messages have been
+   processed, 'world is returned immediately."
+  [world :- core/WorldSchema
+   n :- s/Int]
+  (if (or (zero? n)
+          (empty? (:message-envelopes world)))
+    world
+    (recur (core/do-comm world) (dec n))))
+
+
 (comment
 (binding [scamp.core/*rand* testing-rand*]
                                                                   (for [comm (range 2 252)]
