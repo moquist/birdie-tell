@@ -52,7 +52,7 @@
                                                    "43")
                         (map purge-envelope-id))]
         (is (= result
-               [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]))))))
+               [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]))))))
 
 (def comm-test-world
   (-> core/new-world
