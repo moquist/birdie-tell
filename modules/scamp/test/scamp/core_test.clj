@@ -146,7 +146,22 @@
 
 
 (comment
-(binding [scamp.core/*rand* testing-rand*]
-                                                                  (for [comm (range 2 252)]
-                                                                       (-> comm-test-world (core/do-comms comm) (dissoc :config) purge-world-envelope-ids)))
+  (binding [scamp.core/*rand* testing-rand*]
+    (for [comm (range 2 252)]
+      (-> comm-test-world (core/do-comms comm) (dissoc :config) purge-world-envelope-ids)))
+
+  (binding [scamp.core/*rand* testing-rand*]
+    (let [world comm-test-world
+          result (loop [world world messages-count 0]
+                   (if (-> world :message-envelopes empty?)
+                     {:world world :messages-count messages-count}
+                     (recur (core/do-comm world) (inc messages-count))))
+          end-world (-> result
+                        :world
+                        (dissoc :config)
+                        purge-world-envelope-ids)]
+      (clojure.pprint/pprint {:end-world end-world
+                              :messages-count (:messages-count result)})
+      ))
+
   )
