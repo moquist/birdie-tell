@@ -54,6 +54,19 @@
         (is (= result
                [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]))))))
 
+(defn world-with-subs [subscriptions-count]
+  (let [node-name #(str "node-id" %)
+        world (core/add-new-node core/new-world
+                                 (core/node-contact-address->node (node-name 0)))]
+    (loop [world world
+           n 0]
+      (if (>= n subscriptions-count)
+        world
+        (let [new-node-id-num (inc n)]
+          (recur (core/subscribe-new-node (core/do-all-comms world)
+                                          (node-name new-node-id-num)
+                                          (node-name n))
+                 new-node-id-num))))))
 
 (deftest do-comm-test
   (scamp-test
