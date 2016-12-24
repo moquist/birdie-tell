@@ -71,7 +71,7 @@
 (deftest do-comm-test
   (scamp-test
    #(binding [scamp.core/*rand* testing-rand*]
-      (let [world comm-test-world
+      (let [world (world-with-subs 3)
             end-world (-> (reduce
                            (fn [world _n] (core/do-comm world))
                            world
@@ -80,32 +80,29 @@
                           purge-world-envelope-ids)]
         (is (= end-world
                {:message-envelopes
-                [[:message-envelope "node-id3" :add-upstream "node-id1"]
-                 [:message-envelope "node-id3" :forwarded-subscription "node-id3"]
-                 [:message-envelope "node-id3" :forwarded-subscription "node-id3"]
-                 [:message-envelope "node-id1" :forwarded-subscription "node-id2"]
-                 [:message-envelope "node-id1" :forwarded-subscription "node-id2"]],
+                [[:message-envelope "node-id3" :forwarded-subscription "node-id3"]],
                 :network
                 {"node-id0"
                  {:self {:id "node-id0"},
                   :upstream #{"node-id1"},
                   :downstream #{"node-id2"},
-                  :messages-seen {"1" 1, "2" 1, "3" 1}},
+                  :messages-seen {"1" 1, "2" 1, "3" 7, "8" 1}},
                  "node-id1"
                  {:self {:id "node-id1"},
                   :upstream #{"node-id2"},
-                  :downstream #{"node-id3" "node-id0"},
-                  :messages-seen {"4" 1, "5" 1, "6" 1}},
+                  :downstream #{"node-id2" "node-id3" "node-id0"},
+                  :messages-seen {"2" 1, "3" 9, "6" 1, "7" 1, "8" 1}},
                  "node-id2"
                  {:self {:id "node-id2"},
-                  :upstream #{"node-id3" "node-id0"},
-                  :downstream #{"node-id1"},
-                  :messages-seen {"1" 1, "2" 1, "3" 1}},
+                  :upstream #{"node-id3" "node-id0" "node-id1"},
+                  :downstream #{"node-id3" "node-id1"},
+                  :messages-seen {"4" 1, "2" 1, "3" 10, "5" 1, "7" 1, "8" 1}},
                  "node-id3"
                  {:self {:id "node-id3"},
-                  :upstream #{},
+                  :upstream #{"node-id2" "node-id1"},
                   :downstream #{"node-id2"},
-                  :messages-seen {}}}}))))))
+                  :messages-seen {"9" 1, "7" 1, "10" 1}}}}
+               ))))))
 
 (deftest notify-add-upstream-test
   (scamp-test
