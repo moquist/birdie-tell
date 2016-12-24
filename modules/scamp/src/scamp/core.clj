@@ -50,7 +50,7 @@
 
 (def MessageTypeSchema
   (s/enum :forwarded-subscription
-          :add-upstream))
+          :new-upstream-node))
 
 (def SubscriptionSchema
   NodeContactAddressSchema)
@@ -193,7 +193,7 @@ TODO:
   [downstream :- NodeNeighborsSchema]
   (/ 1 (+ 1 (count downstream))))
 
-(s/defn handle-new-subscription :- [MessageEnvelopeSchema]
+(s/defn receive-msg-new-subscription :- [MessageEnvelopeSchema]
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
   nodes. If :downstream is empty, do nothing."
@@ -242,32 +242,35 @@ TODO:
       subscription
       envelope-id]]))
 
-(s/defn handle-add-upstream :- CommUpdateSchema
-  "Take a node and a new 'upstream-node-contact-address, and return a
-  vector matching CommUpdateSchema."
+(s/defn receive-msg-new-upstream-node :- CommUpdateSchema
+  "Take a node and a new 'upstream-node-contact-address.
+   Add the 'upstream-node-contact-address to :upstream.
+
+   Return this updated 'node and an empty messages vector, to match
+   CommUpdateSchema."
   [logging-config
    node :- NetworkedNodeSchema
    upstream-node-contact-address :- NodeContactAddressSchema]
   (timbre/log* logging-config :trace
-               :handle-add-upstream
+               :receive-msg-new-upstream-node
                :node node
                :upstream-node-contact-address upstream-node-contact-address)
   [(update node :upstream conj upstream-node-contact-address)
    []])
 
-(s/defn notify-add-upstream :- MessageEnvelopeSchema
+(s/defn send-msg-new-upstream-node :- MessageEnvelopeSchema
   "Take a new 'upstream-node-contact-address and a 'node, and return
-  an :add-upstream message envelope for
+  an :new-upstream-node message envelope for
   'upstream-node-contact-address."
   [node :- NetworkedNodeSchema
    upstream-node-contact-address :- NodeContactAddressSchema]
   [:message-envelope
    upstream-node-contact-address
-   :add-upstream
+   :new-upstream-node
    (get-in node [:self :id])
    (*get-envelope-id*)])
 
-(s/defn handle-forwarded-subscription :- CommUpdateSchema
+(s/defn receive-msg-forwarded-subscription :- CommUpdateSchema
   "Take 'logging-config, a node, a new subscription, and an
   'envelope-id. Either accept the subscription into :downstream, or
   forward it to a :downstream node.
@@ -278,7 +281,7 @@ TODO:
    subscriber-contact-address :- NodeContactAddressSchema
    envelope-id :- MessageEnvelopeIdSchema]
   (timbre/log* logging-config :trace
-               :handle-forwarded-subscription
+               :receive-msg-forwarded-subscription
                :node node
                :subscriber-contact-address subscriber-contact-address)
   (if (and (not= (get-in node [:self :id]) subscriber-contact-address)
@@ -288,7 +291,7 @@ TODO:
            ;; so check the probability that we add it to this node.
            (do-probability (subscription-acceptance-probability downstream)))
     [(update-in node [:downstream] conj subscriber-contact-address)
-     [(notify-add-upstream node subscriber-contact-address)]]
+     [(send-msg-new-upstream-node node subscriber-contact-address)]]
 
     (let [forwarded-subscription-messages (forward-subscription downstream
                                                                 subscriber-contact-address
@@ -336,14 +339,16 @@ TODO:
 (s/defn subscribe-new-node :- WorldSchema
   "Given 'world, a 'new-node-contact-address for the node that is
   subscribing, and a 'node, forward subscription requests
-  from 'node."
+  from 'node.
+
+  Return 'world with new messages."
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
    contact-node-address :- NodeContactAddressSchema]
   (let [contact-node (get-node-from-world world contact-node-address)
         new-node (init-new-subscriber new-node-contact-address
                                       contact-node-address)
-        new-messages (handle-new-subscription
+        new-messages (receive-msg-new-subscription
                       (:config world)
                       contact-node
                       new-node-contact-address)]
@@ -377,8 +382,8 @@ TODO:
     (if (< (get-in destination-node [:messages-seen envelope-id])
            message-dup-drop-after)
       (condp = message-type
-        :add-upstream (handle-add-upstream logging destination-node message-body)
-        :forwarded-subscription (handle-forwarded-subscription logging
+        :new-upstream-node (receive-msg-new-upstream-node logging destination-node message-body)
+        :forwarded-subscription (receive-msg-forwarded-subscription logging
                                                                destination-node
                                                                message-body
                                                                envelope-id)

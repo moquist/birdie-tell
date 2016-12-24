@@ -104,19 +104,23 @@
                   :messages-seen {"9" 1, "7" 1, "10" 1}}}}
                ))))))
 
-(deftest notify-add-upstream-test
+(deftest send-msg-new-upstream-node-test
   (scamp-test
    #(is (= (-> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-               (core/notify-add-upstream "liebowitz")
+               (core/send-msg-new-upstream-node "liebowitz")
                purge-envelope-id)
-           [:message-envelope "liebowitz" :add-upstream "canticle"]))))
+           [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
 
-(deftest handle-add-upstream-test
+(deftest receive-msg-new-upstream-node-test
   (scamp-test
-   #(is (= (core/handle-add-upstream (:logging core/default-config)
-                                     {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-                                     "liebowitz")
-           [{:self {:id "canticle"}, :upstream #{"liebowitz"}, :downstream #{} :messages-seen {}} []]))))
+   #(is (= (core/receive-msg-new-upstream-node
+            (:logging core/default-config)
+            {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+            "liebowitz")
+           [{:self {:id "canticle"},
+             :upstream #{"liebowitz"},
+             :downstream #{}
+             :messages-seen {}} []]))))
 
 (deftest update-self-test
   (scamp-test
