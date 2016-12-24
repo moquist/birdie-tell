@@ -3,8 +3,14 @@
             [scamp.core :as core]
             [schema.core :as s]))
 
+(def random-instance (atom (java.util.Random.)))
+
+(defn reset-rand-state! [& seed]
+  (let [seed (or seed 43)]
+    (.setSeed @random-instance seed)))
+
 (defn- testing-rand*
-  ([] 0.4)
+  ([] (.nextFloat @random-instance))
   ([n] (* n (testing-rand*))))
 
 (defn- purge-envelope-id [envelope]
