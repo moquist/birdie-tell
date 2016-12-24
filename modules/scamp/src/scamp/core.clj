@@ -389,7 +389,7 @@ TODO:
 (s/defn do-comm :- WorldSchema
   "Take 'world. Process one message. Return new 'world."
   [{:keys [config] :as world} :- WorldSchema]
-  (if (empty? (:message-envelopes world))
+  (if (-> world :message-envelopes empty?)
     world
     (let [[[_ destination-node-id & message] & message-envelopes] (:message-envelopes world)
           destination-node (get-in world [:network destination-node-id])
