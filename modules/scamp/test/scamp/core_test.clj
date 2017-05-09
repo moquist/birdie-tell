@@ -106,9 +106,9 @@
 
 (deftest send-msg-new-upstream-node-test
   (scamp-test
-   #(is (= (-> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-               (core/send-msg-new-upstream-node "liebowitz")
-               purge-envelope-id)
+   #(is (= (->> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+                (core/send-msg-new-upstream-node "liebowitz")
+                purge-envelope-id)
            [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
 
 (deftest receive-msg-new-upstream-node-test
