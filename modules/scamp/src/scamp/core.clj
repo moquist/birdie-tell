@@ -56,15 +56,15 @@
           :node-removal
           ))
 
-(def SubscriptionSchema
-  NodeContactAddressSchema)
-
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
    (s/one NodeContactAddressSchema "envelope destination")
    (s/one MessageTypesSchema "envelope message type")
    (s/one s/Any "envelope body")
    (s/one MessageEnvelopeIdSchema "envelope id")])
+
+(def SubscriptionSchema
+  NodeContactAddressSchema)
 
 (def WorldConfigSchema
   {:connection-redundancy s/Int
