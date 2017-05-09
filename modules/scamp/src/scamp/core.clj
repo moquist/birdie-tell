@@ -518,11 +518,14 @@ TODO:
     (if (< (get-in destination-node [:messages-seen envelope-id])
            message-dup-drop-after)
       (condp = message-type
-        :new-upstream-node (receive-msg-new-upstream-node logging destination-node message-body)
+        ;; TODO: refactor into 'receive-msg multimethod
+        :new-upstream-node (receive-msg-new-upstream-node logging
+                                                          destination-node
+                                                          message-body)
         :forwarded-subscription (receive-msg-forwarded-subscription logging
-                                                               destination-node
-                                                               message-body
-                                                               envelope-id)
+                                                                    destination-node
+                                                                    message-body
+                                                                    envelope-id)
         :node-unsubscription (receive-msg-node-unsubscription logging
                                                               destination-node
                                                               message-body
