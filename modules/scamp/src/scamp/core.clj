@@ -46,7 +46,8 @@
   {:self NodeCoreSchema
    :upstream NodeNeighborsSchema
    :downstream NodeNeighborsSchema
-   :messages-seen {MessageEnvelopeIdSchema s/Int}})
+   :messages-seen {MessageEnvelopeIdSchema s/Int}
+   (s/optional-key :removed?) s/Bool})
 
 (def MessageTypesSchema
   (s/enum :forwarded-subscription
@@ -159,6 +160,12 @@ TODO:
    :upstream #{}
    :downstream #{}
    :messages-seen {}})
+
+(s/defn node->removed :- NetworkedNodeSchema
+  [node :- NetworkedNodeSchema]
+  (-> (get-in node [:self :id])
+      node-contact-address->node
+      (assoc :removed? true)))
 
 (s/defn init-new-subscriber :- NetworkedNodeSchema
   "Take a 'subscriber-address for a new subscriber, and the
@@ -346,6 +353,146 @@ TODO:
         (add-new-node new-node)
         (add-messages new-messages))))
 
+(s/defn instruct-node-to-unsubscribe :- WorldSchema
+  "This is a mechanism to make unsubscription happen in this toy
+  implementation by inserting a message into 'world from outside the
+  'world.
+
+  Given 'world and the id of a node that is unsubscribing, add a
+  :node-unsubscription message to and return 'world."
+  [world :- WorldSchema
+   node-to-unsubscribe :- NodeContactAddressSchema]
+  (add-messages world [[:message-envelope
+                        node-to-unsubscribe
+                        :node-unsubscription
+                        node-to-unsubscribe
+                        (*get-envelope-id*)]]))
+
+(s/defn send-msg-node-replacement :- MessageEnvelopeSchema
+  [recipient-node-contact-address :- NodeContactAddressSchema
+   old-node-contact-address :- NodeContactAddressSchema
+   new-node-contact-address :- NodeContactAddressSchema]
+  [:message-envelope
+   recipient-node-contact-address
+   :node-replacement
+   {:old old-node-contact-address
+    :new new-node-contact-address}
+   (*get-envelope-id*)])
+
+(s/defn send-msg-node-removal :- MessageEnvelopeSchema
+  [recipient-node-contact-address :- NodeContactAddressSchema
+   removal-node-contact-address :- NodeContactAddressSchema]
+  [:message-envelope
+   recipient-node-contact-address
+   :node-removal
+   removal-node-contact-address
+   (*get-envelope-id*)])
+
+(s/defn receive-msg-node-unsubscription :- CommUpdateSchema
+  "Take 'logging-config, a node, and the ID of a node that is unsubscribing.
+
+   If the unsubscribing node is not this one throw an exception.
+
+   If the unsubscribing node is this one, notify :upstream and
+   :downstream nodes accordingly. [1] 2.2.2 Unsubscriptions
+   1. If an upstream link to this node is being replaced with a link
+      to one of this node's downstream nodes (removing this node as a
+      link in that chain), then both the upstream and downstream nodes
+      must be informed of each other in order to remove this node from
+      between them.
+   2. If an upstream link to this node is being dropped, then the
+      upstream node must be informed.
+   3. Any downstream nodes that do not receive new upstream nodes must
+      be informed that this node is being dropped.
+
+   FYI: This function returns new messages, some of which are pairs of
+   messages to inform upstream and downstream nodes of changes. It's
+   possible that one of a pair of messages may fail to be delivered,
+   or be mishandled on the receiving node. These messages are not
+   handled transactionally, and there are no delivery or handling
+   guarantees or verifications. SCAMP includes a subscription leasing
+   mechanism that will correct any dangling upstream or downstream
+   pointers.
+
+   Prose Restatement of 2.2.2 Unsubscriptions:
+   Remove self from the middle of connections between upstream nodes
+   and downstream nodes, by informing *most* upstream nodes of
+   downstream nodes directly. Leave out (inc :connection-redundancy)
+   upstream nodes when making these replacement connections; these
+   upstream nodes do not receive replacement downstream
+   connections. If there are still more upstream nodes than downstream
+   nodes, just wrap around the downstream list and keep making
+   replacement connections.
+   "
+  [logging-config
+   node :- NetworkedNodeSchema
+   unsubscribing-node-id :- NodeContactAddressSchema
+   connection-redundancy :- s/Int]
+
+  (timbre/log* logging-config :trace
+               :receive-msg-node-unsubscription
+               :node node
+               :unsubscribing-node-id unsubscribing-node-id
+               :connection-redundancy connection-redundancy)
+
+  (let [get-node-id #(get-in % [:self :id])
+        node-id (get-node-id node)]
+
+    (when (not= node-id unsubscribing-node-id)
+      ;; TODO: Be more resiliant.
+      (throw (ex-info "Received :node-unsubscription for other node."
+                      {:unsubscribing-node-id unsubscribing-node-id})))
+
+    (let [upstream-nodes (-> node :upstream sort)
+          downstream-nodes (->> node :downstream sort)
+          num-upstream-to-drop (inc connection-redundancy)
+
+          upstream-replacements (drop num-upstream-to-drop upstream-nodes)
+          ;; upstream nodes we're intentionally not reconnecting
+          upstream-droppers (take num-upstream-to-drop upstream-nodes)
+
+          downstream-droppers (if (> (count upstream-replacements)
+                                     (count downstream-nodes))
+                                ;; If there are more upstream nodes to
+                                ;; receive replacements than there are
+                                ;; downstream nodes to be reconnected,
+                                ;; then we'll use all the downstream
+                                ;; nodes.
+                                []
+                                ;; Else, there are more downstream nodes
+                                ;; than upstream nodes, so some of the
+                                ;; downstream nodes will be unused and
+                                ;; references to this node should just
+                                ;; be removed without replacement.
+                                (drop (count upstream-replacements) downstream-nodes))
+
+          droppers (into (set upstream-droppers) downstream-droppers)
+
+          new-connections (remove #(apply = %) ; Filter out self-connections.
+                                  (zipmap upstream-replacements (cycle downstream-nodes)))
+
+          replacement-messages
+          (doall
+           (mapcat (fn [[upstream-node-contact-address
+                         new-downstream-node-contact-address]]
+                     [(send-msg-node-replacement upstream-node-contact-address
+                                                 node-id
+                                                 new-downstream-node-contact-address)
+                      (send-msg-node-replacement new-downstream-node-contact-address
+                                                 node-id
+                                                 upstream-node-contact-address)])
+            new-connections))
+
+          ;; TODO: filter out dups
+          drop-me-msgs (doall (map #(send-msg-node-removal % node-id) droppers))]
+
+      (timbre/log* logging-config :trace
+               :receive-msg-node-unsubscription
+               :replacement-messages replacement-messages
+               :drop-me-msgs drop-me-msgs)
+      [(node->removed node) (concatv replacement-messages drop-me-msgs)])))
+
+
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.
 
@@ -355,7 +502,7 @@ TODO:
   If this envelope has been seen too many times by 'destination-node
   (as configured by :message-dup-drop-after in 'config), then ignore
   the message."
-  [{:keys [logging message-dup-drop-after] :as config}
+  [{:keys [logging message-dup-drop-after connection-redundancy] :as config}
    destination-node :- NetworkedNodeSchema
    [message-type message-body envelope-id]]
   {:post [(vector? %) (-> % first map?) (-> % second vector?)]}
@@ -376,6 +523,10 @@ TODO:
                                                                destination-node
                                                                message-body
                                                                envelope-id)
+        :node-unsubscription (receive-msg-node-unsubscription logging
+                                                              destination-node
+                                                              message-body
+                                                              connection-redundancy)
         (timbre/log* logging :error
                      :read-mail-unknown-message-type
                      :destination-node destination-node
