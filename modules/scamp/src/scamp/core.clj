@@ -77,7 +77,7 @@
    :network {NodeContactAddressSchema NetworkedNodeSchema}})
 
 (def CommUpdateSchema
-  [(s/one NetworkedNodeSchema "networked node (recipient of processed message)")
+  [(s/one (s/maybe NetworkedNodeSchema) "networked node (recipient of processed message)")
    ;; zereo or more new messages
    [MessageEnvelopeSchema]])
 
