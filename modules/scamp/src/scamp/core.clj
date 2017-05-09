@@ -59,23 +59,6 @@
 (def SubscriptionSchema
   NodeContactAddressSchema)
 
-#_
-(defmacro or-schema
-  [& schemas]
-  (let [preds (map #(fn [x] (println :checking x %) (s/check % x)) schemas)]
-    (println :preds preds)
-    `(s/pred #(some nil? ~preds))))
-
-#_
-(s/defn or-schema :- (s/protocol s/Schema)
-  "Take one or more schemas. Return a schema that matches at least one of them."
-  [& schemas :- [(s/protocol s/Schema)]]
-  (println :schemas schemas)
-  (let [preds (map #(fn [x] (println :checking x %) (s/check % x)) schemas)]
-    (println :preds preds)
-    (s/pred #(some nil? preds))))
-
-
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
    (s/one NodeContactAddressSchema "envelope destination")
