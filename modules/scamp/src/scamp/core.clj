@@ -567,4 +567,12 @@ TODO:
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
 
+  (binding [scamp.core/*rand* testing-rand*]
+    (reset-rand-state!)
+    (let [world (-> (world-with-subs 243)
+                    core/do-all-comms
+                    (core/instruct-node-to-unsubscribe "node-id9")
+                    core/do-all-comms)]
+      (clojure.pprint/pprint world)))
+
   )
