@@ -246,8 +246,8 @@ TODO:
   "Take a new 'upstream-node-contact-address and a 'node, and return
   an :new-upstream-node message envelope for
   'upstream-node-contact-address."
-  [node :- NetworkedNodeSchema
-   upstream-node-contact-address :- NodeContactAddressSchema]
+  [upstream-node-contact-address :- NodeContactAddressSchema
+   node :- NetworkedNodeSchema]
   [:message-envelope
    upstream-node-contact-address
    :new-upstream-node
@@ -275,7 +275,7 @@ TODO:
            ;; so check the probability that we add it to this node.
            (do-probability (subscription-acceptance-probability downstream)))
     [(update-in node [:downstream] conj subscriber-contact-address)
-     [(send-msg-new-upstream-node node subscriber-contact-address)]]
+     [(send-msg-new-upstream-node subscriber-contact-address node)]]
 
     (let [forwarded-subscription-messages (forward-subscription downstream
                                                                 subscriber-contact-address
