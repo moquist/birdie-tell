@@ -48,9 +48,13 @@
    :downstream NodeNeighborsSchema
    :messages-seen {MessageEnvelopeIdSchema s/Int}})
 
-(def MessageTypeSchema
+(def MessageTypesSchema
   (s/enum :forwarded-subscription
-          :new-upstream-node))
+          :new-upstream-node
+          :node-unsubscription ;; currently only for self-unsubscription
+          :node-replacement
+          :node-removal
+          ))
 
 (def SubscriptionSchema
   NodeContactAddressSchema)
@@ -71,15 +75,12 @@
     (println :preds preds)
     (s/pred #(some nil? preds))))
 
-(def MessageBodySchema
-  (s/pred #(some nil?
-                 [(s/check SubscriptionSchema %)])))
 
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
    (s/one NodeContactAddressSchema "envelope destination")
-   (s/one MessageTypeSchema "envelope message type")
-   (s/one MessageBodySchema "envelope body")
+   (s/one MessageTypesSchema "envelope message type")
+   (s/one s/Any "envelope body")
    (s/one MessageEnvelopeIdSchema "envelope id")])
 
 (def WorldConfigSchema
