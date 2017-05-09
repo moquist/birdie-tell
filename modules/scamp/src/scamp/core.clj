@@ -177,6 +177,7 @@ TODO:
   [downstream :- NodeNeighborsSchema]
   (/ 1 (+ 1 (count downstream))))
 
+;; TODO: fix function signature, different from every other 'receive-msg fn!
 (s/defn receive-msg-new-subscription :- [MessageEnvelopeSchema]
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
@@ -259,7 +260,9 @@ TODO:
   'envelope-id. Either accept the subscription into :downstream, or
   forward it to a :downstream node.
 
-  Return a vector matching 'CommUpdateSchema."
+  Return a vector matching 'CommUpdateSchema.
+
+  [1] 2.2.1 Subscription: Algorithm 2"
   [logging-config
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscriber-contact-address :- NodeContactAddressSchema
@@ -325,7 +328,9 @@ TODO:
   subscribing, and a 'node, forward subscription requests
   from 'node.
 
-  Return 'world with new messages."
+  Return 'world with new messages.
+
+  [1] 2.2.1 Subscription: Algorithm 1"
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
    contact-node-address :- NodeContactAddressSchema]
