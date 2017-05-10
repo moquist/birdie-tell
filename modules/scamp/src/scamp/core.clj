@@ -184,14 +184,19 @@ TODO:
   [downstream :- NodeNeighborsSchema]
   (/ 1 (+ 1 (count downstream))))
 
-;; TODO: fix function signature, different from every other 'receive-msg fn!
 (s/defn receive-msg-new-subscription :- [MessageEnvelopeSchema]
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
   nodes. If :downstream is empty, do nothing."
-  [config :- WorldConfigSchema
+  [logging-config
    {:keys [downstream] :as node} :- NetworkedNodeSchema
-   subscription :- SubscriptionSchema]
+   subscription :- SubscriptionSchema
+   connection-redundancy :- s/Int]
+  (timbre/log* logging-config :trace
+               :receive-msg-new-subscription
+               :node node
+               :subscription subscription
+               :connection-redundancy connection-redundancy)
   (if (empty? downstream)
     ;; There is no 'downstream. Do nothing, because the 'subscription
     ;; node will already have 'node in its :downstream.
@@ -201,7 +206,7 @@ TODO:
     (let [downstream (seq downstream)
           downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
                               downstream
-                              (range (:connection-redundancy config)))]
+                              (range connection-redundancy))]
       (map
        (fn [node-id]
          [:message-envelope
@@ -345,9 +350,10 @@ TODO:
         new-node (init-new-subscriber new-node-contact-address
                                       contact-node-address)
         new-messages (receive-msg-new-subscription
-                      (:config world)
+                      (get-in world [:config :logging])
                       contact-node
-                      new-node-contact-address)]
+                      new-node-contact-address
+                      (get-in world [:config :connection-redundancy]))]
     (-> world
         (update-self contact-node #(update % :upstream conj new-node-contact-address))
         (add-new-node new-node)
