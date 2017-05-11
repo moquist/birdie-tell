@@ -94,12 +94,14 @@ TODO:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Defaults and samples
 (def default-config
-  {;; :c :connection-redundancy
-   :connection-redundancy 2 ;; Emperically determined by [1]
-   :message-dup-drop-after 10 ;; Empirically determined by [1]
-   :logging (assoc timbre/*config*
-                   :level :debug)
-   }
+  (s/validate
+   WorldConfigSchema
+   {;; :c :connection-redundancy
+    :connection-redundancy 2 ;; Emperically determined by [1]
+    :message-dup-drop-after 10 ;; Empirically determined by [1]
+    :logging (assoc timbre/*config*
+                    :level :debug)
+    })
   )
 
 (def sample-node
