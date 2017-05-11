@@ -1,5 +1,6 @@
 (ns scamp.core
-  (:require [taoensso.timbre :as timbre]
+  (:require [clojure.string :as str]
+            [taoensso.timbre :as timbre]
             [schema.core :as s]))
 
 (s/set-fn-validation! true)
@@ -586,8 +587,26 @@ TODO:
     world
     (recur (do-comm world))))
 
+(s/defn world->dot
+  [world :- WorldSchema]
+  (let [node-id->int #(str/replace % #"node-id" "")]
+    (str "digraph {"
+         (->> (:network world)
+              (reduce (fn [r [self {:keys [downstream]}]]
+                        (apply str r (map #(str (node-id->int self)
+                                                " -> "
+                                                (node-id->int %)
+                                                ";")
+                                          downstream)))
+                      ""))
+         "}")))
+
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
+
+  (spit "/tmp/wemp.dot" (world->dot world))
+  ;; dot -Tpng -O /tmp/wemp.dot
+  ;; circo -Tpng -O /tmp/wemp.dot
 
   (binding [scamp.core/*rand* testing-rand*]
     (reset-rand-state!)
