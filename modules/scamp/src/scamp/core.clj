@@ -55,6 +55,7 @@
           :node-unsubscription ;; currently only for self-unsubscription
           :node-replacement
           :node-removal
+          :new-subscription
           ))
 
 (def MessageEnvelopeSchema
@@ -184,7 +185,17 @@ TODO:
   [downstream :- NodeNeighborsSchema]
   (/ 1 (+ 1 (count downstream))))
 
-(s/defn receive-msg-new-subscription :- [MessageEnvelopeSchema]
+(s/defn msg->envelope :- MessageEnvelopeSchema
+  [destination-node-contact-address :- NodeContactAddressSchema
+   msg-type :- MessageTypesSchema
+   msg-body]
+  [:message-envelope
+   destination-node-contact-address
+   msg-type
+   msg-body
+   (*get-envelope-id*)])
+
+(s/defn receive-msg-new-subscription :- CommUpdateSchema
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
   nodes. If :downstream is empty, do nothing."
@@ -197,24 +208,27 @@ TODO:
                :node node
                :subscription subscription
                :connection-redundancy connection-redundancy)
-  (if (empty? downstream)
-    ;; There is no 'downstream. Do nothing, because the 'subscription
-    ;; node will already have 'node in its :downstream.
-    []
+  (let [node (update node :upstream conj subscription)
+        new-messages (if (empty? downstream)
+                       ;; There is no 'downstream. No messages are needed, because the
+                       ;; 'subscription node will already have 'node in its
+                       ;; :downstream.
+                       []
 
-    ;; Forward subscription to :downstream.
-    (let [downstream (seq downstream)
-          downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
-                              downstream
-                              (range connection-redundancy))]
-      (map
-       (fn [node-id]
-         [:message-envelope
-          node-id
-          :forwarded-subscription
-          subscription
-          (*get-envelope-id*)])
-       downstream+))))
+                       ;; Forward subscription to :downstream.
+                       (let [downstream (seq downstream)
+                             downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
+                                                 downstream
+                                                 (range connection-redundancy))]
+                         (mapv
+                          (fn [node-id]
+                            [:message-envelope
+                             node-id
+                             :forwarded-subscription
+                             subscription
+                             (*get-envelope-id*)])
+                          downstream+)))]
+    [node new-messages]))
 
 (s/defn do-probability :- s/Bool
   "'rand is inclusive of 0 and exclusive of 1, so our test should not have '=."
@@ -337,27 +351,23 @@ TODO:
 
 (s/defn subscribe-new-node :- WorldSchema
   "Given 'world, a 'new-node-contact-address for the node that is
-  subscribing, and a 'node, forward subscription requests
-  from 'node.
+  subscribing, and a 'node, add 'new-node-contact-address to 'world
+  and inject a :new-subscription message into 'world.
 
-  Return 'world with new messages.
+  Return 'world with the new node and a :new-subscription message.
 
   [1] 2.2.1 Subscription: Algorithm 1"
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
    contact-node-address :- NodeContactAddressSchema]
-  (let [contact-node (get-node-from-world world contact-node-address)
-        new-node (init-new-subscriber new-node-contact-address
+  (let [new-node (init-new-subscriber new-node-contact-address
                                       contact-node-address)
-        new-messages (receive-msg-new-subscription
-                      (get-in world [:config :logging])
-                      contact-node
-                      new-node-contact-address
-                      (get-in world [:config :connection-redundancy]))]
+        new-subscription-message (msg->envelope contact-node-address
+                                                :new-subscription
+                                                new-node-contact-address)]
     (-> world
-        (update-self contact-node #(update % :upstream conj new-node-contact-address))
         (add-new-node new-node)
-        (add-messages new-messages))))
+        (add-messages [new-subscription-message]))))
 
 (s/defn instruct-node-to-unsubscribe :- WorldSchema
   "This is a mechanism to make unsubscription happen in this toy
@@ -536,6 +546,10 @@ TODO:
                                                               destination-node
                                                               message-body
                                                               connection-redundancy)
+        :new-subscription (receive-msg-new-subscription logging
+                                                        destination-node
+                                                        message-body
+                                                        connection-redundancy)
         (timbre/log* logging :error
                      :read-mail-unknown-message-type
                      :destination-node destination-node

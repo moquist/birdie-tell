@@ -31,11 +31,12 @@
                (core/subscribe-new-node "node-id1" "node-id0")
                (dissoc :config)
                purge-world-envelope-ids)
-           {:message-envelopes [],
+           {:message-envelopes
+            [[:message-envelope "node-id0" :new-subscription "node-id1"]],
             :network
             {"node-id0"
              {:self {:id "node-id0"},
-              :upstream #{"node-id1"},
+              :upstream #{},
               :downstream #{},
               :messages-seen {}},
              "node-id1"
@@ -63,9 +64,10 @@
       (if (>= n subscriptions-count)
         world
         (let [new-node-id-num (inc n)]
-          (recur (core/subscribe-new-node (core/do-all-comms world)
-                                          (node-name new-node-id-num)
-                                          (node-name n))
+          (recur (core/do-all-comms
+                  (core/subscribe-new-node (core/do-all-comms world)
+                                           (node-name new-node-id-num)
+                                           (node-name n)))
                  new-node-id-num))))))
 
 (deftest do-comm-test
@@ -79,30 +81,29 @@
                           (dissoc :config)
                           purge-world-envelope-ids)]
         (is (= end-world
-               {:message-envelopes
-                [[:message-envelope "node-id3" :forwarded-subscription "node-id3"]],
+               {:message-envelopes [],
                 :network
                 {"node-id0"
                  {:self {:id "node-id0"},
                   :upstream #{"node-id1"},
                   :downstream #{"node-id2"},
-                  :messages-seen {"1" 1, "2" 1, "3" 7, "8" 1}},
+                  :messages-seen {"1" 1, "3" 1, "4" 1, "5" 7, "11" 2}},
                  "node-id1"
                  {:self {:id "node-id1"},
                   :upstream #{"node-id2"},
                   :downstream #{"node-id2" "node-id3" "node-id0"},
-                  :messages-seen {"2" 1, "3" 9, "6" 1, "7" 1, "8" 1}},
+                  :messages-seen {"2" 1, "4" 1, "5" 9, "9" 1, "10" 1, "11" 7}},
                  "node-id2"
                  {:self {:id "node-id2"},
                   :upstream #{"node-id3" "node-id0" "node-id1"},
                   :downstream #{"node-id3" "node-id1"},
-                  :messages-seen {"4" 1, "2" 1, "3" 10, "5" 1, "7" 1, "8" 1}},
+                  :messages-seen
+                  {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "10" 1, "11" 10}},
                  "node-id3"
                  {:self {:id "node-id3"},
                   :upstream #{"node-id2" "node-id1"},
                   :downstream #{"node-id2"},
-                  :messages-seen {"9" 1, "7" 1, "10" 1}}}}
-               ))))))
+                  :messages-seen {"12" 1, "10" 1, "13" 1, "11" 4}}}}))))))
 
 (deftest send-msg-new-upstream-node-test
   (scamp-test
