@@ -167,7 +167,8 @@ TODO:
 
 (s/defn node->removed :- NetworkedNodeSchema
   [node :- NetworkedNodeSchema]
-  (-> (get-in node [:self :id])
+  (-> node
+      networked-node->node-contact-address
       node-contact-address->node
       (assoc :removed? true)))
 
@@ -237,7 +238,7 @@ TODO:
                :subscription subscription
                :connection-redundancy connection-redundancy)
 
-  (let [self-id (get-in node [:self :id])]
+  (let [self-id (networked-node->node-contact-address node)]
     (when (= self-id subscription)
       (throw (ex-info (str "Got own new subscription: " subscription) {:node node})))
 
@@ -299,7 +300,10 @@ TODO:
                :receive-msg-new-upstream-node
                :node node
                :upstream-node-contact-address upstream-node-contact-address)
-  [(update node :upstream maybe-conj (get-in node [:self :id]) upstream-node-contact-address)
+  [(update node :upstream
+           maybe-conj
+           (networked-node->node-contact-address node)
+           upstream-node-contact-address)
    []])
 
 (s/defn send-msg-new-upstream-node :- MessageEnvelopeSchema
@@ -311,7 +315,7 @@ TODO:
   [:message-envelope
    upstream-node-contact-address
    :new-upstream-node
-   (get-in node [:self :id])
+   (networked-node->node-contact-address node)
    (*get-envelope-id*)])
 
 (s/defmethod receive-msg :forwarded-subscription :- CommUpdateSchema
@@ -331,7 +335,7 @@ TODO:
                :receive-msg-forwarded-subscription
                :node node
                :subscriber-contact-address subscriber-contact-address)
-  (let [self-id (get-in node [:self :id])]
+  (let [self-id (networked-node->node-contact-address node)]
     (if (and (not= self-id subscriber-contact-address)
              (not (downstream subscriber-contact-address))
              ;; The subscription id is not for this node itself, and
@@ -374,7 +378,7 @@ TODO:
   [world :- WorldSchema
    self :- NetworkedNodeSchema
    f & args]
-  (let [self-id (get-in self [:self :id])]
+  (let [self-id (networked-node->node-contact-address self)]
     (update-in world
                [:network self-id]
                #(apply f % args))))
@@ -483,8 +487,7 @@ TODO:
                :unsubscribing-node-id unsubscribing-node-id
                :connection-redundancy connection-redundancy)
 
-  (let [get-node-id #(get-in % [:self :id])
-        node-id (get-node-id node)]
+  (let [node-id (networked-node->node-contact-address node)]
 
     (when (not= node-id unsubscribing-node-id)
       ;; TODO: Be more resiliant.
