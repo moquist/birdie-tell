@@ -148,6 +148,32 @@
     world
     (recur (core/do-comm world) (dec n))))
 
+(deftest receive-msg-node-unsubscription-test
+  (scamp-test
+   (fn []
+     (binding [scamp.core/*rand* testing-rand*]
+       (let [world (-> (world-with-subs 24)
+                       core/do-all-comms
+                       (core/instruct-node-to-unsubscribe "node-id9")
+                       core/do-comm)]
+         (is (= (:message-envelopes world)
+                [[:message-envelope
+                  "node-id8"
+                  :node-replacement
+                  {:old "node-id9", :new "node-id10"}
+                  "154"]
+                 [:message-envelope
+                  "node-id10"
+                  :node-replacement
+                  {:old "node-id9", :new "node-id8"}
+                  "155"]
+                 [:message-envelope "node-id10" :node-removal "node-id9" "156"]
+                 [:message-envelope "node-id8" :node-removal "node-id9" "157"]
+                 [:message-envelope "node-id7" :node-removal "node-id9" "158"]
+                 [:message-envelope "node-id11" :node-removal "node-id9" "159"]
+                 [:message-envelope "node-id6" :node-removal "node-id9" "160"]])))))))
+
+
 
 (comment
   (binding [scamp.core/*rand* testing-rand*]
