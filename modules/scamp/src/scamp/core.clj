@@ -396,22 +396,18 @@ TODO:
   :node-unsubscription message to and return 'world."
   [world :- WorldSchema
    node-to-unsubscribe :- NodeContactAddressSchema]
-  (add-messages world [[:message-envelope
-                        node-to-unsubscribe
-                        :node-unsubscription
-                        node-to-unsubscribe
-                        (*get-envelope-id*)]]))
+  (add-messages world [(msg->envelope node-to-unsubscribe
+                                      :node-unsubscription
+                                      node-to-unsubscribe)]))
 
 (s/defn send-msg-node-replacement :- MessageEnvelopeSchema
   [recipient-node-contact-address :- NodeContactAddressSchema
    old-node-contact-address :- NodeContactAddressSchema
    new-node-contact-address :- NodeContactAddressSchema]
-  [:message-envelope
-   recipient-node-contact-address
-   :node-replacement
-   {:old old-node-contact-address
-    :new new-node-contact-address}
-   (*get-envelope-id*)])
+  (msg->envelope recipient-node-contact-address
+                 :node-replacement
+                 {:old old-node-contact-address
+                  :new new-node-contact-address}))
 
 (s/defn send-msg-node-removal :- MessageEnvelopeSchema
   [recipient-node-contact-address :- NodeContactAddressSchema
