@@ -198,6 +198,17 @@ TODO:
    msg-body
    (*get-envelope-id*)])
 
+(s/defn maybe-conj
+  "'conj 'new-node-contact-address into 'coll as long as
+  'this-node-contact-address and 'new-node-contact-address are
+  different."
+  [coll :- #{NodeContactAddressSchema}
+   this-node-contact-address :- NodeContactAddressSchema
+   new-node-contact-address :- NodeContactAddressSchema]
+  (if (= this-node-contact-address new-node-contact-address)
+    coll
+    (conj coll new-node-contact-address)))
+
 (s/defn receive-msg-new-subscription :- CommUpdateSchema
   "Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
@@ -211,27 +222,30 @@ TODO:
                :node node
                :subscription subscription
                :connection-redundancy connection-redundancy)
-  (let [node (update node :upstream conj subscription)
-        new-messages (if (empty? downstream)
-                       ;; There is no 'downstream. No messages are needed, because the
-                       ;; 'subscription node will already have 'node in its
-                       ;; :downstream.
-                       []
 
-                       ;; Forward subscription to :downstream.
-                       (let [downstream (seq downstream)
-                             downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
-                                                 downstream
-                                                 (range connection-redundancy))]
-                         (mapv
-                          (fn [node-id]
-                            [:message-envelope
-                             node-id
-                             :forwarded-subscription
-                             subscription
-                             (*get-envelope-id*)])
-                          downstream+)))]
-    [node new-messages]))
+  (let [self-id (get-in node [:self :id])]
+    (when (= self-id subscription)
+      (throw (ex-info (str "Got own new subscription: " subscription) {:node node})))
+
+    (let [node (update node :upstream maybe-conj self-id subscription)
+          new-messages (if (empty? downstream)
+                         ;; There is no 'downstream. No messages are needed, because the
+                         ;; 'subscription node will already have 'node in its
+                         ;; :downstream.
+                         []
+
+                         ;; Forward subscription to :downstream.
+                         (let [downstream (seq downstream)
+                               downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
+                                                   downstream
+                                                   (range connection-redundancy))]
+                           (mapv
+                            (fn [node-id]
+                              (msg->envelope node-id
+                                             :forwarded-subscription
+                                             subscription))
+                            downstream+)))]
+      [node new-messages])))
 
 (s/defn do-probability :- s/Bool
   "'rand is inclusive of 0 and exclusive of 1, so our test should not have '=."
@@ -269,7 +283,7 @@ TODO:
                :receive-msg-new-upstream-node
                :node node
                :upstream-node-contact-address upstream-node-contact-address)
-  [(update node :upstream conj upstream-node-contact-address)
+  [(update node :upstream maybe-conj (get-in node [:self :id]) upstream-node-contact-address)
    []])
 
 (s/defn send-msg-new-upstream-node :- MessageEnvelopeSchema
@@ -300,22 +314,23 @@ TODO:
                :receive-msg-forwarded-subscription
                :node node
                :subscriber-contact-address subscriber-contact-address)
-  (if (and (not= (get-in node [:self :id]) subscriber-contact-address)
-           (not (downstream subscriber-contact-address))
-           ;; The subscription id is not for this node itself, and
-           ;; the subscription id is not already in node's downstream,
-           ;; so check the probability that we add it to this node.
-           (do-probability (subscription-acceptance-probability downstream)))
-    [(update-in node [:downstream] conj subscriber-contact-address)
-     [(send-msg-new-upstream-node subscriber-contact-address node)]]
+  (let [self-id (get-in node [:self :id])]
+    (if (and (not= self-id subscriber-contact-address)
+             (not (downstream subscriber-contact-address))
+             ;; The subscription id is not for this node itself, and
+             ;; the subscription id is not already in node's downstream,
+             ;; so check the probability that we add it to this node.
+             (do-probability (subscription-acceptance-probability downstream)))
+      [(update-in node [:downstream] maybe-conj self-id subscriber-contact-address)
+       [(send-msg-new-upstream-node subscriber-contact-address node)]]
 
-    (let [forwarded-subscription-messages (forward-subscription downstream
-                                                                subscriber-contact-address
-                                                                envelope-id)]
-      (when (empty? forwarded-subscription-messages)
-        (throw (ex-info "Failed either to accept or forward subscription"
-                        {:node node :subscriber-contact-address subscriber-contact-address})))
-      [node forwarded-subscription-messages])))
+      (let [forwarded-subscription-messages (forward-subscription downstream
+                                                                  subscriber-contact-address
+                                                                  envelope-id)]
+        (when (empty? forwarded-subscription-messages)
+          (throw (ex-info "Failed either to accept or forward subscription"
+                          {:node node :subscriber-contact-address subscriber-contact-address})))
+        [node forwarded-subscription-messages]))))
 
 (def new-world
   "Return a new, pristine world."
