@@ -24,6 +24,12 @@
   (reset-rand-state!)
   (f))
 
+(deftest maybe-conj-test
+  (is (= #{"susan" "howatch" "louis" "sachar"}
+         (core/maybe-conj #{"susan" "howatch" "louis"} "vinge" "sachar")))
+  (is (= #{"susan" "howatch" "louis" "sachar"}
+         (core/maybe-conj #{"susan" "howatch" "louis" "sachar"} "vinge" "vinge"))))
+
 (deftest subscribe-new-node-test
   (scamp-test
    #(is (= (-> core/new-world
@@ -166,18 +172,71 @@
 
 (deftest receive-msg-new-upstream-node-test
   (scamp-test
-   #(is (= (core/receive-msg :new-upstream-node
-                             core/default-config
-                             {:self {:id "canticle"}
-                              :upstream #{}
-                              :downstream #{}
-                              :messages-seen {}}
-                             "liebowitz"
-                             "43")
-           [{:self {:id "canticle"},
-             :upstream #{"liebowitz"},
-             :downstream #{}
-             :messages-seen {}} []]))))
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [result (core/receive-msg :new-upstream-node
+                                     core/default-config
+                                     {:self {:id "Braedee"}
+                                      :upstream #{"Charon"}
+                                      :downstream #{"Elnear" "Luzali" "Cat"}
+                                      :messages-seen {}}
+                                     "Elnear"
+                                     "43")]
+        (is (= result
+               [{:self {:id "Braedee"},
+                 :upstream #{"Elnear" "Charon"},
+                 :downstream #{"Luzali" "Elnear" "Cat"},
+                 :messages-seen {}}
+                  []]))))))
+
+(deftest receive-msg-forwarded-subscription
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [dup (core/receive-msg :forwarded-subscription
+                                  core/default-config
+                                  {:self {:id "Braedee"}
+                                   :upstream #{"Charon"}
+                                   :downstream #{"Elnear" "Luzali" "Cat"}
+                                   :messages-seen {}}
+                                  "Elnear"
+                                  "43")]
+        (is (= dup
+               [{:self {:id "Braedee"},
+                 :upstream #{"Charon"},
+                 :downstream #{"Luzali" "Elnear" "Cat"},
+                 :messages-seen {}}
+                [[:message-envelope "Luzali" :forwarded-subscription "Elnear" "43"]]])))
+
+      (let [keep (core/receive-msg :forwarded-subscription
+                                   core/default-config
+                                   {:self {:id "Braedee"}
+                                    :upstream #{"Charon"}
+                                    :downstream #{}
+                                    :messages-seen {}}
+                                   "Mikah"
+                                   "43")]
+        (is (= keep
+               [{:self {:id "Braedee"},
+                 :upstream #{"Charon"},
+                 :downstream #{"Mikah"},
+                 :messages-seen {}}
+                [[:message-envelope "Mikah" :new-upstream-node "Braedee" "1"]]])))
+
+      (let [fwd (core/receive-msg :forwarded-subscription
+                                  core/default-config
+                                  {:self {:id "Braedee"}
+                                   :upstream #{"Charon"}
+                                   :downstream #{"Daric" "Lazuli" "Argentyne" "Jiro" "Talitha"}
+                                   :messages-seen {}}
+                                  "Mikah"
+                                  "43")]
+        (is (= fwd
+               [{:self {:id "Braedee"},
+                 :upstream #{"Charon"},
+                 :downstream #{"Daric" "Jiro" "Argentyne" "Talitha" "Lazuli"},
+                 :messages-seen {}}
+                [[:message-envelope "Talitha" :forwarded-subscription "Mikah" "43"]]]))))))
+
+
 
 (deftest send-msg-new-upstream-node-test
   (scamp-test
@@ -237,6 +296,24 @@
                 [:message-envelope "node-id16" :node-removal "node-id19" "292"]
                 [:message-envelope "node-id23" :node-removal "node-id19" "293"]]
                ))))))
+
+(deftest receive-msg-node-node-removal
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [rem (core/receive-msg :node-removal
+                                  core/default-config
+                                  {:self {:id "Braedee"}
+                                   :upstream #{"Charon" "Centauri"}
+                                   :downstream #{"Daric" "Centauri"}
+                                   :messages-seen {}}
+                                  "Centauri"
+                                  "43")]
+        (is (= rem
+               [{:self {:id "Braedee"},
+                 :upstream #{"Charon"},
+                 :downstream #{"Daric"},
+                 :messages-seen {}}
+                []]))))))
 
 
 
