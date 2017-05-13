@@ -209,15 +209,29 @@ TODO:
     coll
     (conj coll new-node-contact-address)))
 
-(s/defn receive-msg-new-subscription :- CommUpdateSchema
-  "Forward the 'subscription to every :downstream node, duplicating
+(defmulti receive-msg
+  (fn [msg-type & _] msg-type))
+
+(defmethod receive-msg :default
+  [& args]
+  (let [[_message-type {:keys [logging]} & _rest] args]
+    (if logging
+      (timbre/log* logging :error
+                   :receive-msg-unknown-message-type
+                   :args args)
+      (prn "Error: unknown message type received by 'receive-msg."
+           :args args))))
+
+(s/defmethod receive-msg :new-subscription :- CommUpdateSchema
+  #_"Forward the 'subscription to every :downstream node, duplicating
   the forwarded 'subscription to :connection-redundancy :downstream
   nodes. If :downstream is empty, do nothing."
-  [logging-config
+  [_message-type :- MessageTypesSchema
+   {:keys [logging connection-redundancy]}
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscription :- SubscriptionSchema
-   connection-redundancy :- s/Int]
-  (timbre/log* logging-config :trace
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
                :receive-msg-new-subscription
                :node node
                :subscription subscription
@@ -270,16 +284,18 @@ TODO:
       subscription
       envelope-id]]))
 
-(s/defn receive-msg-new-upstream-node :- CommUpdateSchema
-  "Take a node and a new 'upstream-node-contact-address.
+(s/defmethod receive-msg :new-upstream-node :- CommUpdateSchema
+  #_"Take a node and a new 'upstream-node-contact-address.
    Add the 'upstream-node-contact-address to :upstream.
 
    Return this updated 'node and an empty messages vector, to match
    CommUpdateSchema."
-  [logging-config
+  [_message-type :- MessageTypesSchema
+   {:keys [logging]}
    node :- NetworkedNodeSchema
-   upstream-node-contact-address :- NodeContactAddressSchema]
-  (timbre/log* logging-config :trace
+   upstream-node-contact-address :- NodeContactAddressSchema
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
                :receive-msg-new-upstream-node
                :node node
                :upstream-node-contact-address upstream-node-contact-address)
@@ -298,19 +314,20 @@ TODO:
    (get-in node [:self :id])
    (*get-envelope-id*)])
 
-(s/defn receive-msg-forwarded-subscription :- CommUpdateSchema
-  "Take 'logging-config, a node, a new subscription, and an
+(s/defmethod receive-msg :forwarded-subscription :- CommUpdateSchema
+  #_"Take 'config, a node, a new subscription, and an
   'envelope-id. Either accept the subscription into :downstream, or
   forward it to a :downstream node.
 
   Return a vector matching 'CommUpdateSchema.
 
   [1] 2.2.1 Subscription: Algorithm 2"
-  [logging-config
+  [_message-type :- MessageTypesSchema
+   {:keys [logging]}
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscriber-contact-address :- NodeContactAddressSchema
    envelope-id :- MessageEnvelopeIdSchema]
-  (timbre/log* logging-config :trace
+  (timbre/log* logging :trace
                :receive-msg-forwarded-subscription
                :node node
                :subscriber-contact-address subscriber-contact-address)
@@ -418,8 +435,8 @@ TODO:
    removal-node-contact-address
    (*get-envelope-id*)])
 
-(s/defn receive-msg-node-unsubscription :- CommUpdateSchema
-  "Take 'logging-config, a node, and the ID of a node that is unsubscribing.
+(s/defmethod receive-msg :node-unsubscription :- CommUpdateSchema
+  #_"Take 'config, a node, and the ID of a node that is unsubscribing.
 
    If the unsubscribing node is not this one throw an exception.
 
@@ -454,12 +471,13 @@ TODO:
    nodes, just wrap around the downstream list and keep making
    replacement connections.
    "
-  [logging-config
+  [_message-type :- MessageTypesSchema
+   {:keys [logging connection-redundancy]}
    node :- NetworkedNodeSchema
    unsubscribing-node-id :- NodeContactAddressSchema
-   connection-redundancy :- s/Int]
+   _envelope-id :- MessageEnvelopeIdSchema]
 
-  (timbre/log* logging-config :trace
+  (timbre/log* logging :trace
                :receive-msg-node-unsubscription
                :node node
                :unsubscribing-node-id unsubscribing-node-id
@@ -516,7 +534,7 @@ TODO:
           ;; TODO: filter out dups
           drop-me-msgs (doall (map #(send-msg-node-removal % node-id) droppers))]
 
-      (timbre/log* logging-config :trace
+      (timbre/log* logging :trace
                :receive-msg-node-unsubscription
                :replacement-messages replacement-messages
                :drop-me-msgs drop-me-msgs)
@@ -526,16 +544,18 @@ TODO:
   [s to-remove]
   (into #{} (remove #(= % to-remove) s)))
 
-(s/defn receive-msg-node-removal :- CommUpdateSchema
-  "Take 'logging-config, a 'node, and the contact address of a
+(s/defmethod receive-msg :node-removal :- CommUpdateSchema
+  #_"Take 'config, a 'node, and the contact address of a
   'node-to-remove. Remove 'node-to-remove from :upstream and
   :downstream, and return 'node.
 
   Return a vector matching 'CommUpdateSchema."
-  [logging-config
+  [_message-type :- MessageTypesSchema
+   {:keys [logging]}
    {:keys [upstream downstream] :as node} :- NetworkedNodeSchema
-   node-to-remove :- NodeContactAddressSchema]
-  (timbre/log* logging-config :trace
+   node-to-remove :- NodeContactAddressSchema
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
                :receive-msg-node-removal
                :node node
                :node-to-remove node-to-remove)
@@ -568,31 +588,7 @@ TODO:
                                     #(if % (inc %) 1))]
     (if (< (get-in destination-node [:messages-seen envelope-id])
            message-dup-drop-after)
-      (condp = message-type
-        ;; TODO: refactor into 'receive-msg multimethod
-        :new-upstream-node (receive-msg-new-upstream-node logging
-                                                          destination-node
-                                                          message-body)
-        :forwarded-subscription (receive-msg-forwarded-subscription logging
-                                                                    destination-node
-                                                                    message-body
-                                                                    envelope-id)
-        :node-unsubscription (receive-msg-node-unsubscription logging
-                                                              destination-node
-                                                              message-body
-                                                              connection-redundancy)
-        :new-subscription (receive-msg-new-subscription logging
-                                                        destination-node
-                                                        message-body
-                                                        connection-redundancy)
-        :node-removal (receive-msg-node-removal logging
-                                                destination-node
-                                                message-body)
-        (timbre/log* logging :error
-                     :read-mail-unknown-message-type
-                     :destination-node destination-node
-                     :message-type message-type
-                     :message-body message-body))
+      (receive-msg message-type config destination-node message-body envelope-id)
       (do
         (timbre/log* logging :trace
                      :read-mail-dropping-dup

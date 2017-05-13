@@ -114,10 +114,12 @@
 
 (deftest receive-msg-new-upstream-node-test
   (scamp-test
-   #(is (= (core/receive-msg-new-upstream-node
-            (:logging core/default-config)
+   #(is (= (core/receive-msg
+            :new-upstream-node
+            core/default-config
             {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-            "liebowitz")
+            "liebowitz"
+            "43")
            [{:self {:id "canticle"},
              :upstream #{"liebowitz"},
              :downstream #{}
