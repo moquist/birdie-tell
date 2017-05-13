@@ -217,6 +217,8 @@ TODO:
   [& args]
   (let [[_message-type {:keys [logging]} & _rest] args]
     (if logging
+      ;; TODO: If an unknown message type is received, gracefully shut
+      ;; down to allow restart with an upgrade?
       (timbre/log* logging :error
                    :receive-msg-unknown-message-type
                    :args args)
