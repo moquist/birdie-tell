@@ -106,13 +106,6 @@
                   :messages-seen {"12" 1, "13" 1, "11" 3, "14" 1}}}}
                ))))))
 
-(deftest send-msg-new-upstream-node-test
-  (scamp-test
-   #(is (= (->> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-                (core/send-msg-new-upstream-node "liebowitz")
-                purge-envelope-id)
-           [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
-
 (deftest receive-msg-new-subscription-test
   (scamp-test
    #(binding [scamp.core/*rand* testing-rand*]
@@ -185,6 +178,13 @@
              :upstream #{"liebowitz"},
              :downstream #{}
              :messages-seen {}} []]))))
+
+(deftest send-msg-new-upstream-node-test
+  (scamp-test
+   #(is (= (->> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
+                (core/send-msg-new-upstream-node "liebowitz")
+                purge-envelope-id)
+           [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
 
 (deftest update-self-test
   (scamp-test
