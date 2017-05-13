@@ -250,7 +250,7 @@ TODO:
                          []
 
                          ;; Forward subscription to :downstream.
-                         (let [downstream (seq downstream)
+                         (let [downstream (sort downstream)
                                downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
                                                    downstream
                                                    (range connection-redundancy))]
@@ -280,7 +280,7 @@ TODO:
   (if (empty? downstream)
     []
     [[:message-envelope
-      (rand-nth* (seq downstream))
+      (rand-nth* (sort downstream))
       :forwarded-subscription
       subscription
       envelope-id]]))

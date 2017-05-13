@@ -53,7 +53,7 @@
                                                    "43")
                         (map purge-envelope-id))]
         (is (= result
-               [[:message-envelope "stuffier-node" :forwarded-subscription "allergen-free-node"]]))))))
+               [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]))))))
 
 (defn world-with-subs [subscriptions-count]
   (let [node-name #(str "node-id" %)
@@ -86,24 +86,25 @@
                 {"node-id0"
                  {:self {:id "node-id0"},
                   :upstream #{"node-id1"},
-                  :downstream #{"node-id2"},
-                  :messages-seen {"1" 1, "3" 1, "4" 1, "5" 7, "11" 2}},
+                  :downstream #{"node-id2" "node-id3"},
+                  :messages-seen {"1" 1, "3" 1, "4" 1, "5" 5, "9" 1}},
                  "node-id1"
                  {:self {:id "node-id1"},
                   :upstream #{"node-id2"},
                   :downstream #{"node-id2" "node-id3" "node-id0"},
-                  :messages-seen {"2" 1, "4" 1, "5" 9, "9" 1, "10" 1, "11" 7}},
+                  :messages-seen {"2" 1, "4" 1, "5" 9, "9" 2, "10" 1, "11" 5}},
                  "node-id2"
                  {:self {:id "node-id2"},
                   :upstream #{"node-id3" "node-id0" "node-id1"},
                   :downstream #{"node-id3" "node-id1"},
                   :messages-seen
-                  {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "10" 1, "11" 10}},
+                  {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "9" 1, "11" 5}},
                  "node-id3"
                  {:self {:id "node-id3"},
-                  :upstream #{"node-id2" "node-id1"},
+                  :upstream #{"node-id2" "node-id0" "node-id1"},
                   :downstream #{"node-id2"},
-                  :messages-seen {"12" 1, "10" 1, "13" 1, "11" 4}}}}))))))
+                  :messages-seen {"12" 1, "13" 1, "11" 3, "14" 1}}}}
+               ))))))
 
 (deftest send-msg-new-upstream-node-test
   (scamp-test
@@ -112,14 +113,74 @@
                 purge-envelope-id)
            [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
 
+(deftest receive-msg-new-subscription-test
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (is (= (core/receive-msg :new-subscription
+                               core/default-config
+                               {:self {:id "Auri"}
+                                :upstream #{"Kvothe" "Mandrag"}
+                                :downstream #{"Fulcrum" "Scaperling" "Foxen" "Underthing" "Mantle" "Withy" "Crumbledon" "Cricklet" "The Twelve"}
+                                :messages-seen {}}
+                               "Ninewise"
+                               "43")
+             [{:self {:id "Auri"},
+               :upstream #{"Mandrag" "Kvothe" "Ninewise"},
+               :downstream
+               #{"Fulcrum" "Crumbledon" "Mantle" "Cricklet" "Foxen" "The Twelve"
+                 "Underthing" "Withy" "Scaperling"},
+               :messages-seen {}}
+              [[:message-envelope "Foxen" :forwarded-subscription "Ninewise" "1"]
+               [:message-envelope
+                "The Twelve"
+                :forwarded-subscription
+                "Ninewise"
+                "2"]
+               [:message-envelope
+                "Cricklet"
+                :forwarded-subscription
+                "Ninewise"
+                "3"]
+               [:message-envelope
+                "Crumbledon"
+                :forwarded-subscription
+                "Ninewise"
+                "4"]
+               [:message-envelope "Foxen" :forwarded-subscription "Ninewise" "5"]
+               [:message-envelope "Fulcrum" :forwarded-subscription "Ninewise" "6"]
+               [:message-envelope "Mantle" :forwarded-subscription "Ninewise" "7"]
+               [:message-envelope
+                "Scaperling"
+                :forwarded-subscription
+                "Ninewise"
+                "8"]
+               [:message-envelope
+                "The Twelve"
+                :forwarded-subscription
+                "Ninewise"
+                "9"]
+               [:message-envelope
+                "Underthing"
+                :forwarded-subscription
+                "Ninewise"
+                "10"]
+               [:message-envelope
+                "Withy"
+                :forwarded-subscription
+                "Ninewise"
+                "11"]]]
+             )))))
+
 (deftest receive-msg-new-upstream-node-test
   (scamp-test
-   #(is (= (core/receive-msg
-            :new-upstream-node
-            core/default-config
-            {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-            "liebowitz"
-            "43")
+   #(is (= (core/receive-msg :new-upstream-node
+                             core/default-config
+                             {:self {:id "canticle"}
+                              :upstream #{}
+                              :downstream #{}
+                              :messages-seen {}}
+                             "liebowitz"
+                             "43")
            [{:self {:id "canticle"},
              :upstream #{"liebowitz"},
              :downstream #{}
@@ -153,28 +214,29 @@
 
 (deftest receive-msg-node-unsubscription-test
   (scamp-test
-   (fn []
-     (binding [scamp.core/*rand* testing-rand*]
-       (let [world (-> (world-with-subs 24)
-                       core/do-all-comms
-                       (core/instruct-node-to-unsubscribe "node-id9")
-                       core/do-comm)]
-         (is (= (:message-envelopes world)
-                [[:message-envelope
-                  "node-id8"
-                  :node-replacement
-                  {:old "node-id9", :new "node-id10"}
-                  "154"]
-                 [:message-envelope
-                  "node-id10"
-                  :node-replacement
-                  {:old "node-id9", :new "node-id8"}
-                  "155"]
-                 [:message-envelope "node-id10" :node-removal "node-id9" "156"]
-                 [:message-envelope "node-id8" :node-removal "node-id9" "157"]
-                 [:message-envelope "node-id7" :node-removal "node-id9" "158"]
-                 [:message-envelope "node-id11" :node-removal "node-id9" "159"]
-                 [:message-envelope "node-id6" :node-removal "node-id9" "160"]])))))))
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [world (-> (world-with-subs 43)
+                      core/do-all-comms
+                      (core/instruct-node-to-unsubscribe "node-id19")
+                      core/do-comm)]
+        (is (= (:message-envelopes world)
+               [[:message-envelope
+                 "node-id20"
+                 :node-replacement
+                 {:old "node-id19", :new "node-id18"}
+                 "286"]
+                [:message-envelope
+                 "node-id18"
+                 :node-replacement
+                 {:old "node-id19", :new "node-id20"}
+                 "287"]
+                [:message-envelope "node-id17" :node-removal "node-id19" "288"]
+                [:message-envelope "node-id21" :node-removal "node-id19" "289"]
+                [:message-envelope "node-id20" :node-removal "node-id19" "290"]
+                [:message-envelope "node-id18" :node-removal "node-id19" "291"]
+                [:message-envelope "node-id16" :node-removal "node-id19" "292"]
+                [:message-envelope "node-id23" :node-removal "node-id19" "293"]]
+               ))))))
 
 
 
