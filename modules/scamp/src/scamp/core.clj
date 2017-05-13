@@ -522,6 +522,27 @@ TODO:
                :drop-me-msgs drop-me-msgs)
       [(node->removed node) (concatv replacement-messages drop-me-msgs)])))
 
+(defn- set-disclude
+  [s to-remove]
+  (into #{} (remove #(= % to-remove) s)))
+
+(s/defn receive-msg-node-removal :- CommUpdateSchema
+  "Take 'logging-config, a 'node, and the contact address of a
+  'node-to-remove. Remove 'node-to-remove from :upstream and
+  :downstream, and return 'node.
+
+  Return a vector matching 'CommUpdateSchema."
+  [logging-config
+   {:keys [upstream downstream] :as node} :- NetworkedNodeSchema
+   node-to-remove :- NodeContactAddressSchema]
+  (timbre/log* logging-config :trace
+               :receive-msg-node-removal
+               :node node
+               :node-to-remove node-to-remove)
+  [(-> node
+       (update-in [:upstream] set-disclude node-to-remove)
+       (update-in [:downstream] set-disclude node-to-remove))
+   []])
 
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.
@@ -564,6 +585,9 @@ TODO:
                                                         destination-node
                                                         message-body
                                                         connection-redundancy)
+        :node-removal (receive-msg-node-removal logging
+                                                destination-node
+                                                message-body)
         (timbre/log* logging :error
                      :read-mail-unknown-message-type
                      :destination-node destination-node
