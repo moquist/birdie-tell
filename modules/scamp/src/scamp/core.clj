@@ -314,11 +314,9 @@ TODO:
   'upstream-node-contact-address."
   [upstream-node-contact-address :- NodeContactAddressSchema
    node :- NetworkedNodeSchema]
-  [:message-envelope
-   upstream-node-contact-address
-   :new-upstream-node
-   (networked-node->node-contact-address node)
-   (*get-envelope-id*)])
+  (msg->envelope upstream-node-contact-address
+                 :new-upstream-node
+                 (networked-node->node-contact-address node)))
 
 (s/defmethod receive-msg :forwarded-subscription :- CommUpdateSchema
   #_"Take 'config, a node, a new subscription, and an
@@ -435,11 +433,9 @@ TODO:
 (s/defn send-msg-node-removal :- MessageEnvelopeSchema
   [recipient-node-contact-address :- NodeContactAddressSchema
    removal-node-contact-address :- NodeContactAddressSchema]
-  [:message-envelope
-   recipient-node-contact-address
-   :node-removal
-   removal-node-contact-address
-   (*get-envelope-id*)])
+  (msg->envelope recipient-node-contact-address
+                 :node-removal
+                 removal-node-contact-address))
 
 (s/defmethod receive-msg :node-unsubscription :- CommUpdateSchema
   #_"Take 'config, a node, and the ID of a node that is unsubscribing.
