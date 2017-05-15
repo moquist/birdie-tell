@@ -236,22 +236,6 @@
                  :messages-seen {}}
                 [[:message-envelope "Talitha" :forwarded-subscription "Mikah" "43"]]]))))))
 
-
-(deftest update-self-test
-  (scamp-test
-   (fn []
-     (let [new-node (core/node-contact-address->node "node-id0")
-           non-networked-node (core/node-contact-address->node "non-networked-node")]
-       (is (= (-> core/new-world
-                  (core/add-new-node new-node)
-                  (core/update-self new-node #(update % :upstream conj "flimflam"))
-                  (dissoc :config)
-                  purge-world-envelope-ids)
-              {:message-envelopes []
-               :network
-               {"node-id0"
-                {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))))
-
 (deftest msg->envelope-test
   ;; Probably a worthless test, but does ensure that 'scamp-test
   ;; resets envelope-id-counter as expected.

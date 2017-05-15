@@ -365,16 +365,6 @@ TODO:
    new-messages :- [MessageEnvelopeSchema]]
   (update-in world [:message-envelopes] concatv new-messages))
 
-(s/defn update-self :- WorldSchema
-  "Given world and 'self, update self with 'f and 'args."
-  [world :- WorldSchema
-   self :- NetworkedNodeSchema
-   f & args]
-  (let [self-id (networked-node->node-contact-address self)]
-    (update-in world
-               [:network self-id]
-               #(apply f % args))))
-
 (s/defn get-node-from-world :- NetworkedNodeSchema
   [world :- WorldSchema
    node-contact-address :- NodeContactAddressSchema]
