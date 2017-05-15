@@ -237,14 +237,6 @@
                 [[:message-envelope "Talitha" :forwarded-subscription "Mikah" "43"]]]))))))
 
 
-
-(deftest send-msg-new-upstream-node-test
-  (scamp-test
-   #(is (= (->> {:self {:id "canticle"} :upstream #{} :downstream #{} :messages-seen {}}
-                (core/send-msg-new-upstream-node "liebowitz")
-                purge-envelope-id)
-           [:message-envelope "liebowitz" :new-upstream-node "canticle"]))))
-
 (deftest update-self-test
   (scamp-test
    (fn []
@@ -259,6 +251,13 @@
                :network
                {"node-id0"
                 {:self {:id "node-id0"}, :upstream #{"flimflam"}, :downstream #{} :messages-seen {}}}}))))))
+
+(deftest msg->envelope-test
+  ;; Probably a worthless test, but does ensure that 'scamp-test
+  ;; resets envelope-id-counter as expected.
+  (scamp-test
+   #(is (= (core/msg->envelope "Esther" :new-subscription "Jonathan")
+           [:message-envelope "Esther" :new-subscription "Jonathan" "1"]))))
 
 (s/defn do-comms :- core/WorldSchema
   "Take 'world and 'n. Process up to 'n messages. Return new 'world.

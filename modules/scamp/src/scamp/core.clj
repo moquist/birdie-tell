@@ -308,16 +308,6 @@ TODO:
            upstream-node-contact-address)
    []])
 
-(s/defn send-msg-new-upstream-node :- MessageEnvelopeSchema
-  "Take a new 'upstream-node-contact-address and a 'node, and return
-  an :new-upstream-node message envelope for
-  'upstream-node-contact-address."
-  [upstream-node-contact-address :- NodeContactAddressSchema
-   node :- NetworkedNodeSchema]
-  (msg->envelope upstream-node-contact-address
-                 :new-upstream-node
-                 (networked-node->node-contact-address node)))
-
 (s/defmethod receive-msg :forwarded-subscription :- CommUpdateSchema
   #_"Take 'config, a node, a new subscription, and an
   'envelope-id. Either accept the subscription into :downstream, or
@@ -343,7 +333,9 @@ TODO:
              ;; so check the probability that we add it to this node.
              (do-probability (subscription-acceptance-probability downstream)))
       [(update-in node [:downstream] maybe-conj self-id subscriber-contact-address)
-       [(send-msg-new-upstream-node subscriber-contact-address node)]]
+       [(msg->envelope subscriber-contact-address
+                       :new-upstream-node
+                       (networked-node->node-contact-address node))]]
 
       (let [forwarded-subscription-messages (forward-subscription downstream
                                                                   subscriber-contact-address
@@ -420,22 +412,6 @@ TODO:
   (add-messages world [(msg->envelope node-to-unsubscribe
                                       :node-unsubscription
                                       node-to-unsubscribe)]))
-
-(s/defn send-msg-node-replacement :- MessageEnvelopeSchema
-  [recipient-node-contact-address :- NodeContactAddressSchema
-   old-node-contact-address :- NodeContactAddressSchema
-   new-node-contact-address :- NodeContactAddressSchema]
-  (msg->envelope recipient-node-contact-address
-                 :node-replacement
-                 {:old old-node-contact-address
-                  :new new-node-contact-address}))
-
-(s/defn send-msg-node-removal :- MessageEnvelopeSchema
-  [recipient-node-contact-address :- NodeContactAddressSchema
-   removal-node-contact-address :- NodeContactAddressSchema]
-  (msg->envelope recipient-node-contact-address
-                 :node-removal
-                 removal-node-contact-address))
 
 (s/defmethod receive-msg :node-unsubscription :- CommUpdateSchema
   #_"Take 'config, a node, and the ID of a node that is unsubscribing.
@@ -524,12 +500,13 @@ TODO:
           (doall
            (mapcat (fn [[upstream-node-contact-address
                          new-downstream-node-contact-address]]
-                     [(send-msg-node-replacement upstream-node-contact-address
-                                                 node-id
-                                                 new-downstream-node-contact-address)
-                      (send-msg-node-replacement new-downstream-node-contact-address
-                                                 node-id
-                                                 upstream-node-contact-address)])
+
+                     [(msg->envelope upstream-node-contact-address
+                                     :node-replacement
+                                     {:old node-id :new new-downstream-node-contact-address})
+                      (msg->envelope new-downstream-node-contact-address
+                                     :node-replacement
+                                     {:old node-id :new upstream-node-contact-address})])
             new-connections))
 
           ;; TODO: filter out dups
