@@ -351,14 +351,14 @@ TODO:
    :config default-config
    :network {}})
 
-(s/defn add-new-node :- WorldSchema
+(s/defn world-add-new-node :- WorldSchema
   "Update world to 'turn on' node."
   [world :- WorldSchema
    networked-node :- NetworkedNodeSchema]
   (assoc-in world [:network (node->node-contact-address (:self networked-node))]
             networked-node))
 
-(s/defn add-messages :- WorldSchema
+(s/defn world-add-messages :- WorldSchema
   "Given 'world and new messages to add, return 'world with the new
   messages added."
   [world :- WorldSchema
@@ -370,7 +370,7 @@ TODO:
    node-contact-address :- NodeContactAddressSchema]
   (get-in world [:network node-contact-address]))
 
-(s/defn subscribe-new-node :- WorldSchema
+(s/defn world-subscribe-new-node :- WorldSchema
   "Given 'world, a 'new-node-contact-address for the node that is
   subscribing, and a 'node, add 'new-node-contact-address to 'world
   and inject a :new-subscription message into 'world.
@@ -387,10 +387,10 @@ TODO:
                                                 :new-subscription
                                                 new-node-contact-address)]
     (-> world
-        (add-new-node new-node)
-        (add-messages [new-subscription-message]))))
+        (world-add-new-node new-node)
+        (world-add-messages [new-subscription-message]))))
 
-(s/defn instruct-node-to-unsubscribe :- WorldSchema
+(s/defn world-instruct-node-to-unsubscribe :- WorldSchema
   "This is a mechanism to make unsubscription happen in this toy
   implementation by inserting a message into 'world from outside the
   'world.
@@ -399,7 +399,7 @@ TODO:
   :node-unsubscription message to and return 'world."
   [world :- WorldSchema
    node-to-unsubscribe :- NodeContactAddressSchema]
-  (add-messages world [(msg->envelope node-to-unsubscribe
+  (world-add-messages world [(msg->envelope node-to-unsubscribe
                                       :node-unsubscription
                                       node-to-unsubscribe)]))
 
@@ -578,7 +578,7 @@ TODO:
           (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
           (assoc-in [:network destination-node-id] new-destination-node)))))
 
-(s/defn do-all-comms :- WorldSchema
+(s/defn world-do-all-comms :- WorldSchema
   "Take 'world. Process communication until no unread messages remain.
    Return world."
   [world :- WorldSchema]
@@ -610,9 +610,9 @@ TODO:
   (binding [scamp.core/*rand* testing-rand*]
     (reset-rand-state!)
     (let [world (-> (world-with-subs 243)
-                    core/do-all-comms
-                    (core/instruct-node-to-unsubscribe "node-id9")
-                    core/do-all-comms)]
+                    core/world-do-all-comms
+                    (core/world-instruct-node-to-unsubscribe "node-id9")
+                    core/world-do-all-comms)]
       (clojure.pprint/pprint world)))
 
   )

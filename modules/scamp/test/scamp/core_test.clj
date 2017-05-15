@@ -30,11 +30,11 @@
   (is (= #{"susan" "howatch" "louis" "sachar"}
          (core/maybe-conj #{"susan" "howatch" "louis" "sachar"} "vinge" "vinge"))))
 
-(deftest subscribe-new-node-test
+(deftest world-subscribe-new-node-test
   (scamp-test
    #(is (= (-> core/new-world
-               (core/add-new-node (core/node-contact-address->node "node-id0"))
-               (core/subscribe-new-node "node-id1" "node-id0")
+               (core/world-add-new-node (core/node-contact-address->node "node-id0"))
+               (core/world-subscribe-new-node "node-id1" "node-id0")
                (dissoc :config)
                purge-world-envelope-ids)
            {:message-envelopes
@@ -63,17 +63,17 @@
 
 (defn world-with-subs [subscriptions-count]
   (let [node-name #(str "node-id" %)
-        world (core/add-new-node core/new-world
-                                 (core/node-contact-address->node (node-name 0)))]
+        world (core/world-add-new-node core/new-world
+                                       (core/node-contact-address->node (node-name 0)))]
     (loop [world world
            n 0]
       (if (>= n subscriptions-count)
         world
         (let [new-node-id-num (inc n)]
-          (recur (core/do-all-comms
-                  (core/subscribe-new-node (core/do-all-comms world)
-                                           (node-name new-node-id-num)
-                                           (node-name n)))
+          (recur (core/world-do-all-comms
+                  (core/world-subscribe-new-node (core/world-do-all-comms world)
+                                                 (node-name new-node-id-num)
+                                                 (node-name n)))
                  new-node-id-num))))))
 
 (deftest do-comm-test
@@ -258,8 +258,8 @@
   (scamp-test
    #(binding [scamp.core/*rand* testing-rand*]
       (let [world (-> (world-with-subs 43)
-                      core/do-all-comms
-                      (core/instruct-node-to-unsubscribe "node-id19")
+                      core/world-do-all-comms
+                      (core/world-instruct-node-to-unsubscribe "node-id19")
                       core/do-comm)]
         (is (= (:message-envelopes world)
                [[:message-envelope
