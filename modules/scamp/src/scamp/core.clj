@@ -499,8 +499,7 @@ TODO:
                                      {:old node-id :new upstream-node-contact-address})])
             new-connections))
 
-          ;; TODO: filter out dups
-          drop-me-msgs (doall (map #(send-msg-node-removal % node-id) droppers))]
+          drop-me-msgs (doall (map #(msg->envelope % :node-removal node-id) droppers))]
 
       (timbre/log* logging :trace
                :receive-msg-node-unsubscription
@@ -508,8 +507,9 @@ TODO:
                :drop-me-msgs drop-me-msgs)
       [(node->removed node) (concatv replacement-messages drop-me-msgs)])))
 
-(defn- set-disclude
-  [s to-remove]
+(s/defn set-disclude :- #{s/Any}
+  [s :- #{s/Any}
+   to-remove :- s/Any]
   (into #{} (remove #(= % to-remove) s)))
 
 (s/defmethod receive-msg :node-removal :- CommUpdateSchema
