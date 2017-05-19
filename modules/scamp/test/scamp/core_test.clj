@@ -71,7 +71,7 @@
         world
         (let [new-node-id-num (inc n)]
           (recur (core/world-do-all-comms
-                  (core/world-subscribe-new-node (core/world-do-all-comms world)
+                  (core/world-subscribe-new-node world
                                                  (node-name new-node-id-num)
                                                  (node-name n)))
                  new-node-id-num))))))
