@@ -16,6 +16,30 @@
   (reset! envelope-id-counter 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implement a binding-overridable "millisecond" application clock.
+(def ^:private clock-value-in-millis (atom 0))
+
+(defn tick-clock-millis! [& [num-ticks]]
+  (swap! clock-value-in-millis + (or num-ticks 1)))
+
+(def ^:dynamic *milli-time*
+  (fn [] @clock-value-in-millis))
+
+(defn reset-clock!
+  "Reset 'clock-value-in-millis back to 0.
+  This should probably only be called from tests that need determinism."
+  []
+  (reset! clock-value-in-millis 0))
+
+(defn jitter-int
+  "Given a 'base-duration in some numerical unit of time, and an
+  'agitation-distance the jitter can cover from that 'base-duration,
+  compute a jittered duration and return it as an integer."
+  [base-duration agitation-distance]
+  (let [agitation (- (rand agitation-distance) (/ agitation-distance 2))]
+    (int (+ base-duration agitation))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Custom randomization (for predictable testing)
 (def ^:dynamic *rand* rand)
 
@@ -48,7 +72,9 @@
    :upstream NodeNeighborsSchema
    :downstream NodeNeighborsSchema
    :messages-seen {MessageEnvelopeIdSchema s/Int}
-   (s/optional-key :removed?) s/Bool})
+   (s/optional-key :removed?) s/Bool
+   :send-next-heartbeats-milli-time (s/maybe s/Int)
+   :heartbeat-timeout-milli-time (s/maybe s/Int)})
 
 (def MessageTypesSchema
   (s/enum :forwarded-subscription
@@ -57,6 +83,7 @@
           :node-replacement
           :node-removal
           :new-subscription
+          :heartbeat
           ))
 
 (def MessageEnvelopeSchema
@@ -72,7 +99,9 @@
 (def WorldConfigSchema
   {:connection-redundancy s/Int
    :message-dup-drop-after s/Int
-   :logging {s/Keyword s/Any}})
+   :logging {s/Keyword s/Any}
+   :heartbeat-interval-in-millis s/Int
+   :heartbeat-timeout-in-millis s/Int})
 
 (def WorldSchema
   {:message-envelopes [MessageEnvelopeSchema]
@@ -102,6 +131,8 @@ TODO:
     :message-dup-drop-after 10 ;; Empirically determined by [1]
     :logging (assoc timbre/*config*
                     :level :debug)
+    :heartbeat-interval-in-millis (* 30 1000)
+    :heartbeat-timeout-in-millis (* 45 1000)
     })
   )
 
@@ -163,7 +194,9 @@ TODO:
   {:self {:id node-contact-address}
    :upstream #{}
    :downstream #{}
-   :messages-seen {}})
+   :messages-seen {}
+   :send-next-heartbeats-milli-time nil
+   :heartbeat-timeout-milli-time nil})
 
 (s/defn node->removed :- NetworkedNodeSchema
   [node :- NetworkedNodeSchema]
@@ -172,15 +205,27 @@ TODO:
       node-contact-address->node
       (assoc :removed? true)))
 
+(s/defn init-node-async :- NetworkedNodeSchema
+  "Take a node, initialize async-related settings"
+  [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as world-config} :- WorldConfigSchema
+   node :- NetworkedNodeSchema]
+  (let [milli-time (*milli-time*)]
+    (assoc node
+           :send-next-heartbeats-milli-time (+ milli-time heartbeat-interval-in-millis)
+           :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))))
+
 (s/defn init-new-subscriber :- NetworkedNodeSchema
   "Take a 'subscriber-address for a new subscriber, and the
   'contact-node handling the subscription, and return an initialized
   networked-node for the new subscriber."
-  [subscriber-address :- NodeContactAddressSchema
+  [world-config :- WorldConfigSchema
+   subscriber-address :- NodeContactAddressSchema
    contact-node :- NodeContactAddressSchema]
-  (-> subscriber-address
-      node-contact-address->node
-      (assoc-in [:downstream] #{contact-node})))
+  (let [init-fn (partial init-node-async world-config)]
+    (-> subscriber-address
+        node-contact-address->node
+        init-fn
+        (assoc :downstream #{contact-node}))))
 
 (s/defn subscription-acceptance-probability :- ProbabilitySchema
   "Determine the probability that a node will accept a subscription
@@ -287,6 +332,45 @@ TODO:
       subscription
       envelope-id]]))
 
+(s/defn node-do-async-processing :- CommUpdateSchema
+  "Do all node-specific async processing, such as sending heartbeats."
+  [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as config} :- WorldConfigSchema
+   {:keys [send-next-heartbeats-milli-time
+           heartbeat-timeout-milli-time
+           downstream]
+    :as node} :- NetworkedNodeSchema]
+  (let [milli-time (*milli-time*)
+        this-node-contact-address (networked-node->node-contact-address node)
+        heartbeat-timeout-fn (fn [[node msgs]]
+                               [(assoc node
+                                       :heartbeat-timeout-milli-time nil
+                                       ;; TODO: ditch :upstream, keep :downstream?
+                                       :upstream #{})
+                                (conj msgs (msg->envelope (rand-nth* (sort downstream))
+                                                          :new-subscription
+                                                          this-node-contact-address))])
+        send-next-heartbeats-fn (fn [[node msgs]]
+                                  [(assoc node
+                                          :send-next-heartbeats-milli-time
+                                          (+ milli-time heartbeat-interval-in-millis))
+                                   (concatv msgs
+                                           (mapv #(msg->envelope %
+                                                                 :heartbeat
+                                                                 this-node-contact-address)
+                                                 downstream))])]
+    (cond-> [node []]
+      (and heartbeat-timeout-milli-time (<= heartbeat-timeout-milli-time milli-time))
+      heartbeat-timeout-fn
+
+      (and send-next-heartbeats-milli-time (<= send-next-heartbeats-milli-time milli-time))
+      send-next-heartbeats-fn)))
+
+(s/defn world-do-async-processing :- WorldSchema
+  [world :- WorldSchema]
+  (let [comm-updates (mapcat (partial node-do-async-processing (:config world)) (-> world :network vals))]
+    (println :t (*milli-time*) :comm-updates comm-updates)
+    world))
+
 (s/defmethod receive-msg :new-upstream-node :- CommUpdateSchema
   #_"Take a node and a new 'upstream-node-contact-address.
    Add the 'upstream-node-contact-address to :upstream.
@@ -381,7 +465,8 @@ TODO:
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
    contact-node-address :- NodeContactAddressSchema]
-  (let [new-node (init-new-subscriber new-node-contact-address
+  (let [new-node (init-new-subscriber (:config world)
+                                      new-node-contact-address
                                       contact-node-address)
         new-subscription-message (msg->envelope contact-node-address
                                                 :new-subscription
@@ -515,7 +600,7 @@ TODO:
 (s/defmethod receive-msg :node-removal :- CommUpdateSchema
   #_"Take 'config, a 'node, and the contact address of a
   'node-to-remove. Remove 'node-to-remove from :upstream and
-  :downstream, and return 'node.
+  :downstream.
 
   Return a vector matching 'CommUpdateSchema."
   [_message-type :- MessageTypesSchema
@@ -531,6 +616,22 @@ TODO:
        (update-in [:upstream] set-disclude node-to-remove)
        (update-in [:downstream] set-disclude node-to-remove))
    []])
+
+(s/defmethod receive-msg :heartbeat :- CommUpdateSchema
+  #_"Take 'config and a 'node, and update :heartbeat-timeout-milli-time.
+
+  Return a vector matching 'CommUpdateSchema."
+  [_message-type :- MessageTypesSchema
+   {:keys [logging heartbeat-timeout-in-millis]}
+   node :- NetworkedNodeSchema
+   _body :- s/Any
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
+               :receive-msg-heartbeat
+               :node node)
+  (let [milli-time (*milli-time*)]
+    [(assoc node :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))
+     []]))
 
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.
@@ -564,7 +665,7 @@ TODO:
                      :envelope-id envelope-id)
         [destination-node []]))))
 
-(s/defn do-comm :- WorldSchema
+(s/defn world-do-comm :- WorldSchema
   "Take 'world. Process one message. Return new 'world."
   [{:keys [config] :as world} :- WorldSchema]
   (if (-> world :message-envelopes empty?)
@@ -574,6 +675,8 @@ TODO:
           [new-destination-node new-message-envelopes] (read-mail config
                                                                   destination-node
                                                                   message)]
+      (tick-clock-millis!) ; This makes 1000 msg/"second" the upper bound of throughput.
+      (world-do-async-processing world)
       (-> world
           (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
           (assoc-in [:network destination-node-id] new-destination-node)))))
@@ -584,7 +687,7 @@ TODO:
   [world :- WorldSchema]
   (if (-> world :message-envelopes empty?)
     world
-    (recur (do-comm world))))
+    (recur (world-do-comm world))))
 
 (s/defn world->dot
   [world :- WorldSchema]
@@ -599,6 +702,9 @@ TODO:
                                           downstream)))
                       ""))
          "}")))
+
+(def system-map
+  )
 
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
