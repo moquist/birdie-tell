@@ -585,7 +585,7 @@ TODO:
                      :envelope-id envelope-id)
         [destination-node []]))))
 
-(s/defn do-comm :- WorldSchema
+(s/defn world-do-comm :- WorldSchema
   "Take 'world. Process one message. Return new 'world."
   [{:keys [config] :as world} :- WorldSchema]
   (if (-> world :message-envelopes empty?)
@@ -605,7 +605,7 @@ TODO:
   [world :- WorldSchema]
   (if (-> world :message-envelopes empty?)
     world
-    (recur (do-comm world))))
+    (recur (world-do-comm world))))
 
 (s/defn world->dot
   [world :- WorldSchema]

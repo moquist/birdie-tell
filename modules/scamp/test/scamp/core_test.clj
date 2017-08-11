@@ -81,7 +81,7 @@
    #(binding [scamp.core/*rand* testing-rand*]
       (let [world (world-with-subs 3)
             end-world (-> (reduce
-                           (fn [world _n] (core/do-comm world))
+                           (fn [world _n] (core/world-do-comm world))
                            world
                            (range 9))
                           (dissoc :config)
@@ -252,7 +252,7 @@
   (if (or (zero? n)
           (empty? (:message-envelopes world)))
     world
-    (recur (core/do-comm world) (dec n))))
+    (recur (core/world-do-comm world) (dec n))))
 
 (deftest receive-msg-node-unsubscription-test
   (scamp-test
@@ -260,7 +260,7 @@
       (let [world (-> (world-with-subs 43)
                       core/world-do-all-comms
                       (core/world-instruct-node-to-unsubscribe "node-id19")
-                      core/do-comm)]
+                      core/world-do-comm)]
         (is (= (:message-envelopes world)
                [[:message-envelope
                  "node-id16"
@@ -308,7 +308,7 @@
           result (loop [world world messages-count 0]
                    (if (-> world :message-envelopes empty?)
                      {:world world :messages-count messages-count}
-                     (recur (core/do-comm world) (inc messages-count))))
+                     (recur (core/world-do-comm world) (inc messages-count))))
           end-world (-> result
                         :world
                         (dissoc :config)
