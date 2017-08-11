@@ -84,14 +84,14 @@
 (def SubscriptionSchema
   NodeContactAddressSchema)
 
-(def WorldConfigSchema
+(def ClusterConfigSchema
   {:connection-redundancy s/Int
    :message-dup-drop-after s/Int
    :logging {s/Keyword s/Any}})
 
 (def WorldSchema
   {:message-envelopes [MessageEnvelopeSchema]
-   :config WorldConfigSchema
+   :config ClusterConfigSchema
    :network {NodeContactAddressSchema NetworkedNodeSchema}})
 
 (def CommUpdateSchema
@@ -111,7 +111,7 @@ TODO:
 ;; Defaults and samples
 (def default-config
   (s/validate
-   WorldConfigSchema
+   ClusterConfigSchema
    {;; :c :connection-redundancy
     :connection-redundancy 2 ;; Emperically determined by [1]
     :message-dup-drop-after 10 ;; Empirically determined by [1]
