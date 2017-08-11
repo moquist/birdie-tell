@@ -51,13 +51,28 @@
    (s/optional-key :removed?) s/Bool})
 
 (def MessageTypesSchema
-  (s/enum :forwarded-subscription
-          :new-upstream-node
-          :node-unsubscription ;; currently only for self-unsubscription
-          :node-replacement
-          :node-removal
-          :new-subscription
-          ))
+  (s/enum
+   ;; first [re]contact: [re]subscribe a new node
+   :new-subscription
+
+   ;; new node joining cluster, recipient will probabilistically add this new node to :downstream, else forward it again
+   :forwarded-subscription
+
+   ;; inform newly :downstream node that you are now in its :upstream
+   :new-upstream-node
+
+   ;; I added this to make it possible to instruct a node to unsubscribe.
+   :node-unsubscription
+
+   ;; instruct an upstream node and a downstream node to connect directly, without me in the middle
+   :node-replacement
+
+   ;; alternative to :node-replacement, used when upstream/downstream don't get a replacement
+   :node-removal
+
+   ;; just for saying "Hi" and "please don't assume you've been partitioned from the rest of the cluster"
+   :heartbeat
+   ))
 
 (def MessageEnvelopeSchema
   [(s/one (s/eq :message-envelope) "envelope variant type")
