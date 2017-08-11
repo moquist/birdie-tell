@@ -225,6 +225,8 @@ TODO:
     coll
     (conj coll new-node-contact-address)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; receive-msg
 (defmulti receive-msg
   (fn [msg-type & _] msg-type))
 
@@ -241,9 +243,12 @@ TODO:
            :args args))))
 
 (s/defmethod receive-msg :new-subscription :- CommUpdateSchema
-  #_"Forward the 'subscription to every :downstream node, duplicating
-  the forwarded 'subscription to :connection-redundancy :downstream
-  nodes. If :downstream is empty, do nothing."
+  #_"Add 'subscription to :upstream.
+     Then Forward the 'subscription to every :downstream node,
+     duplicating the forwarded 'subscription to :connection-redundancy
+     :downstream nodes. If :downstream is empty, do no forwarding.
+
+  2.2.1 Subscription: Algorithm 1"
   [_message-type :- MessageTypesSchema
    {:keys [logging connection-redundancy]}
    {:keys [downstream] :as node} :- NetworkedNodeSchema
@@ -531,7 +536,7 @@ TODO:
 (s/defmethod receive-msg :node-removal :- CommUpdateSchema
   #_"Take 'config, a 'node, and the contact address of a
   'node-to-remove. Remove 'node-to-remove from :upstream and
-  :downstream, and return 'node.
+  :downstream.
 
   Return a vector matching 'CommUpdateSchema."
   [_message-type :- MessageTypesSchema
