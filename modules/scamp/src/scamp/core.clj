@@ -473,8 +473,9 @@ TODO:
       (throw (ex-info "Received :node-unsubscription for other node."
                       {:unsubscribing-node-id unsubscribing-node-id})))
 
-    (let [upstream-nodes (-> node :upstream sort)
-          downstream-nodes (->> node :downstream sort)
+    (let [rand-comparator (fn [& x] (*rand*))
+          upstream-nodes (sort-by identity rand-comparator (:upstream node))
+          downstream-nodes (sort-by identity rand-comparator (:downstream node))
           num-upstream-to-drop (inc connection-redundancy)
 
           upstream-replacements (drop num-upstream-to-drop upstream-nodes)

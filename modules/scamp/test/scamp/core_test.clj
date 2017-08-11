@@ -263,21 +263,19 @@
                       core/do-comm)]
         (is (= (:message-envelopes world)
                [[:message-envelope
-                 "node-id20"
+                 "node-id16"
                  :node-replacement
-                 {:old "node-id19", :new "node-id18"}
+                 {:old "node-id19", :new "node-id21"}
                  "286"]
                 [:message-envelope
-                 "node-id18"
+                 "node-id21"
                  :node-replacement
-                 {:old "node-id19", :new "node-id20"}
+                 {:old "node-id19", :new "node-id16"}
                  "287"]
                 [:message-envelope "node-id17" :node-removal "node-id19" "288"]
-                [:message-envelope "node-id21" :node-removal "node-id19" "289"]
-                [:message-envelope "node-id20" :node-removal "node-id19" "290"]
-                [:message-envelope "node-id18" :node-removal "node-id19" "291"]
-                [:message-envelope "node-id16" :node-removal "node-id19" "292"]
-                [:message-envelope "node-id23" :node-removal "node-id19" "293"]]
+                [:message-envelope "node-id20" :node-removal "node-id19" "289"]
+                [:message-envelope "node-id18" :node-removal "node-id19" "290"]
+                [:message-envelope "node-id23" :node-removal "node-id19" "291"]]
                ))))))
 
 (deftest receive-msg-node-node-removal
