@@ -296,7 +296,7 @@ TODO:
 
   2.2.1 Subscription: Algorithm 1"
   [_message-type :- MessageTypesSchema
-   {:keys [logging connection-redundancy]}
+   {:keys [logging connection-redundancy] :as cluster-config}
    {:keys [downstream] :as node} :- NetworkedNodeSchema
    subscription :- SubscriptionSchema
    _envelope-id :- MessageEnvelopeIdSchema]
