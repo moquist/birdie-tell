@@ -26,6 +26,31 @@
   (nth coll (rand-int* (count coll))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implement a binding-overridable "millisecond" application clock.
+(def ^:private clock-value-in-millis (atom 0))
+
+(defn tick-clock-millis! [& [num-ticks]]
+  (swap! clock-value-in-millis + (or num-ticks 1)))
+
+(def ^:dynamic *milli-time*
+  ;; TODO: put a time in each node
+  (fn [] @clock-value-in-millis))
+
+(defn reset-clock!
+  "Reset 'clock-value-in-millis back to 0.
+  This should probably only be called from tests that need determinism."
+  []
+  (reset! clock-value-in-millis 0))
+
+(defn jitter-int
+  "Given a 'base-duration in some numerical unit of time, and an
+  'agitation-distance the jitter can cover from that 'base-duration,
+  compute a jittered duration and return it as an integer."
+  [base-duration agitation-distance]
+  (let [agitation (- (*rand* agitation-distance) (/ agitation-distance 2))]
+    (int (+ base-duration agitation))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn- concatv [coll & colls]
   (vec (apply concat coll colls)))
 
