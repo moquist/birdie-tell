@@ -31,6 +31,7 @@
 (defn scamp-test [f]
   (core/reset-envelope-ids!)
   (reset-rand-state!)
+  (core/reset-clock!)
   (f))
 
 (deftest maybe-conj-test
@@ -288,6 +289,66 @@
                        :upstream #{"Charon"}
                        :downstream #{"Daric"})
                 []]))))))
+
+(deftest node-do-async-processing-test
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [node-base (assoc (core/node-contact-address->node "lewis")
+                             :upstream #{"macdonald"}
+                             :downstream #{"studdock" "feverstone" "hingest" "merlinus" "ironwood"}
+                             :messages-seen {}
+                             :send-next-heartbeats-milli-time 10
+                             :heartbeat-timeout-milli-time 15)]
+        (testing "heartbeat sending"
+          (core/tick-clock-millis! 14)
+          (is (= (core/node-do-async-processing core/default-config node-base)
+                 [(assoc node-base :send-next-heartbeats-milli-time 30014)
+                  [[:message-envelope "merlinus" :heartbeat "lewis" "1"]
+                   [:message-envelope "ironwood" :heartbeat "lewis" "2"]
+                   [:message-envelope "studdock" :heartbeat "lewis" "3"]
+                   [:message-envelope "feverstone" :heartbeat "lewis" "4"]
+                   [:message-envelope "hingest" :heartbeat "lewis" "5"]]])))
+
+        (testing "both heartbeat sending and heartbeat timeout"
+          (core/tick-clock-millis! 5)
+          (is (= (core/node-do-async-processing core/default-config node-base)
+                 [(assoc node-base
+                         :upstream #{}
+                         :heartbeat-timeout-milli-time nil
+                         :send-next-heartbeats-milli-time 30019)
+                  [[:message-envelope "merlinus" :new-subscription "lewis" "6"]
+                   [:message-envelope "merlinus" :heartbeat "lewis" "7"]
+                   [:message-envelope "ironwood" :heartbeat "lewis" "8"]
+                   [:message-envelope "studdock" :heartbeat "lewis" "9"]
+                   [:message-envelope "feverstone" :heartbeat "lewis" "10"]
+                   [:message-envelope "hingest" :heartbeat "lewis" "11"]]])))))))
+
+(deftest receive-msg-heartbeat-test
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [node-base (assoc (core/node-contact-address->node "valjean")
+                             :heartbeat-timeout-milli-time 43)]
+        (testing "heartbeat receiving"
+          (core/tick-clock-millis! 40)
+          (is (= (core/receive-msg :heartbeat core/default-config node-base nil "envelope-7")
+                 [(assoc node-base
+                         :heartbeat-timeout-milli-time 45040)
+                  []])))))))
+
+(deftest heartbeats-test
+  (scamp-test
+   #(binding [scamp.core/*rand* testing-rand*]
+      (let [node-base (assoc (core/node-contact-address->node "valjean")
+                             :heartbeat-timeout-milli-time 43)]
+        (testing "heartbeat receiving"
+          (core/tick-clock-millis! 40)
+          (is (= (core/receive-msg :heartbeat core/default-config node-base nil "envelope-7")
+                 [(assoc node-base
+                         :heartbeat-timeout-milli-time 45040)
+                  []])))))))
+
+;; TODO: set up a world with enough nodes to have some interesting upstream/downstream, maybe manaully set a couple to have shorter heartbeat-timeouts than the send-next-heartbeats-milli-time of everything else, so they unsubscribe and re-subscribe
+
 
 
 

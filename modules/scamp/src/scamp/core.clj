@@ -353,6 +353,45 @@ TODO:
       subscription
       envelope-id]]))
 
+(s/defn node-do-async-processing :- CommUpdateSchema
+  "Do all node-specific async processing, such as sending heartbeats."
+  [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as config} :- ClusterConfigSchema
+   {:keys [send-next-heartbeats-milli-time
+           heartbeat-timeout-milli-time
+           downstream]
+    :as node} :- NetworkedNodeSchema]
+  (let [milli-time (*milli-time*)
+        this-node-contact-address (networked-node->node-contact-address node)
+        heartbeat-timeout-fn (fn [[node msgs]]
+                               [(assoc node
+                                       :heartbeat-timeout-milli-time nil
+                                       ;; TODO: ditch :upstream, keep :downstream?
+                                       :upstream #{})
+                                (conj msgs (msg->envelope (rand-nth* (sort downstream))
+                                                          :new-subscription
+                                                          this-node-contact-address))])
+        send-next-heartbeats-fn (fn [[node msgs]]
+                                  [(assoc node
+                                          :send-next-heartbeats-milli-time
+                                          (+ milli-time heartbeat-interval-in-millis))
+                                   (concatv msgs
+                                           (mapv #(msg->envelope %
+                                                                 :heartbeat
+                                                                 this-node-contact-address)
+                                                 downstream))])]
+    (cond-> [node []]
+      (and heartbeat-timeout-milli-time (<= heartbeat-timeout-milli-time milli-time))
+      heartbeat-timeout-fn
+
+      (and send-next-heartbeats-milli-time (<= send-next-heartbeats-milli-time milli-time))
+      send-next-heartbeats-fn)))
+
+(s/defn world-do-async-processing :- WorldSchema
+  [world :- WorldSchema]
+  (let [comm-updates (mapcat (partial node-do-async-processing (:config world)) (-> world :network vals))]
+    #_(println :t (*milli-time*) :comm-updates comm-updates)
+    world))
+
 (s/defmethod receive-msg :new-upstream-node :- CommUpdateSchema
   #_"Take a node and a new 'upstream-node-contact-address.
    Add the 'upstream-node-contact-address to :upstream.
@@ -600,6 +639,22 @@ TODO:
        (update-in [:downstream] set-disclude node-to-remove))
    []])
 
+(s/defmethod receive-msg :heartbeat :- CommUpdateSchema
+  #_"Take 'config and a 'node, and update :heartbeat-timeout-milli-time.
+
+  Return a vector matching 'CommUpdateSchema."
+  [_message-type :- MessageTypesSchema
+   {:keys [logging heartbeat-timeout-in-millis]}
+   node :- NetworkedNodeSchema
+   _body :- s/Any
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
+               :receive-msg-heartbeat
+               :node node)
+  (let [milli-time (*milli-time*)]
+    [(assoc node :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))
+     []]))
+
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.
 
@@ -642,6 +697,8 @@ TODO:
           [new-destination-node new-message-envelopes] (read-mail config
                                                                   destination-node
                                                                   message)]
+      (tick-clock-millis!) ; This makes 1000 msg/"second" the upper bound of throughput.
+      (world-do-async-processing world)
       (-> world
           (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
           (assoc-in [:network destination-node-id] new-destination-node)))))
