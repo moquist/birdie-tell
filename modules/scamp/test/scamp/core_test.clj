@@ -261,7 +261,7 @@
                 [:message-envelope "node-id23" :node-removal "node-id19" "291"]]
                ))))))
 
-(deftest receive-msg-node-node-removal
+(deftest receive-msg-node-removal
   (scamp-test
    #(binding [scamp.core/*rand* testing-rand*]
       (let [node-base (assoc (core/node-contact-address->node "Braedee")
