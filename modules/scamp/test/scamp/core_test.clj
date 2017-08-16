@@ -19,6 +19,15 @@
 (defn- purge-world-envelope-ids [world]
   (update world :message-envelopes #(mapv purge-envelope-id %)))
 
+(defn- purge-world-async-state [world]
+  (reduce (fn [world [node-contact-address networked-node]]
+            (assoc-in world [:network node-contact-address]
+                      (assoc networked-node
+                             :send-next-heartbeats-milli-time nil
+                             :heartbeat-timeout-milli-time nil)))
+          world
+          (:network world)))
+
 (defn scamp-test [f]
   (core/reset-envelope-ids!)
   (reset-rand-state!)
@@ -36,7 +45,8 @@
                (core/world-add-new-node (core/node-contact-address->node "node-id0"))
                (core/world-subscribe-new-node "node-id1" "node-id0")
                (dissoc :config)
-               purge-world-envelope-ids)
+               purge-world-envelope-ids
+               purge-world-async-state)
            {:message-envelopes
             [[:message-envelope "node-id0" :new-subscription "node-id1"]],
             :network
@@ -86,7 +96,7 @@
                            (range 9))
                           (dissoc :config)
                           purge-world-envelope-ids)]
-        (is (= end-world
+        (is (= (purge-world-async-state end-world)
                {:message-envelopes [],
                 :network
                 {"node-id0"

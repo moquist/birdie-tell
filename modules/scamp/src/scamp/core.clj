@@ -73,7 +73,10 @@
    :upstream NodeNeighborsSchema
    :downstream NodeNeighborsSchema
    :messages-seen {MessageEnvelopeIdSchema s/Int}
-   (s/optional-key :removed?) s/Bool})
+   (s/optional-key :removed?) s/Bool
+   :send-next-heartbeats-milli-time (s/maybe s/Int)
+   :heartbeat-timeout-milli-time (s/maybe s/Int)
+   })
 
 (def MessageTypesSchema
   (s/enum
@@ -112,7 +115,9 @@
 (def ClusterConfigSchema
   {:connection-redundancy s/Int
    :message-dup-drop-after s/Int
-   :logging {s/Keyword s/Any}})
+   :logging {s/Keyword s/Any}
+   :heartbeat-interval-in-millis s/Int
+   :heartbeat-timeout-in-millis s/Int})
 
 (def WorldSchema
   {:message-envelopes [MessageEnvelopeSchema]
@@ -142,6 +147,8 @@ TODO:
     :message-dup-drop-after 10 ;; Empirically determined by [1]
     :logging (assoc timbre/*config*
                     :level :debug)
+    :heartbeat-interval-in-millis (* 30 1000)
+    :heartbeat-timeout-in-millis (* 45 1000)
     })
   )
 
@@ -203,7 +210,9 @@ TODO:
   {:self {:id node-contact-address}
    :upstream #{}
    :downstream #{}
-   :messages-seen {}})
+   :messages-seen {}
+   :send-next-heartbeats-milli-time nil
+   :heartbeat-timeout-milli-time nil})
 
 (s/defn node->removed :- NetworkedNodeSchema
   [node :- NetworkedNodeSchema]
@@ -212,15 +221,27 @@ TODO:
       node-contact-address->node
       (assoc :removed? true)))
 
+(s/defn init-node-async :- NetworkedNodeSchema
+  "Take a node, initialize async-related settings"
+  [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as cluster-config} :- ClusterConfigSchema
+   node :- NetworkedNodeSchema]
+  (let [milli-time (*milli-time*)]
+    (assoc node
+           :send-next-heartbeats-milli-time (+ milli-time heartbeat-interval-in-millis)
+           :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))))
+
 (s/defn init-new-subscriber :- NetworkedNodeSchema
   "Take a 'subscriber-address for a new subscriber, and the
   'contact-node handling the subscription, and return an initialized
   networked-node for the new subscriber."
-  [subscriber-address :- NodeContactAddressSchema
+  [cluster-config :- ClusterConfigSchema
+   subscriber-address :- NodeContactAddressSchema
    contact-node :- NodeContactAddressSchema]
-  (-> subscriber-address
-      node-contact-address->node
-      (assoc-in [:downstream] #{contact-node})))
+  (let [init-fn (partial init-node-async cluster-config)]
+    (-> subscriber-address
+        node-contact-address->node
+        init-fn
+        (assoc :downstream #{contact-node}))))
 
 (s/defn subscription-acceptance-probability :- ProbabilitySchema
   "Determine the probability that a node will accept a subscription
@@ -426,7 +447,8 @@ TODO:
   [world :- WorldSchema
    new-node-contact-address :- NodeContactAddressSchema
    contact-node-address :- NodeContactAddressSchema]
-  (let [new-node (init-new-subscriber new-node-contact-address
+  (let [new-node (init-new-subscriber (:config world)
+                                      new-node-contact-address
                                       contact-node-address)
         new-subscription-message (msg->envelope contact-node-address
                                                 :new-subscription
