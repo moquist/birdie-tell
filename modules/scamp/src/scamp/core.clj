@@ -1,4 +1,17 @@
 (ns scamp.core
+  "Implement Gossip cluster membership protocol defined in \"Peer-to-Peer Membership Management
+  for Gossip-Based Protocols\".
+  SCAMP = SCAlable Membership Protocol
+  https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ieee_tocs.pdf
+
+  TODO:
+    * DONE: subscription (§2.2.1, Algorithm 1)
+    * DONE: subscription (§2.2.1, Algorithm 2)
+    * DONE: unsubscription (§2.2.2)
+    * heartbeats (§2.2.3) (partially done, first async feature because depends on concept of \"a long time\")
+    * subscription indirection (§3.1)
+    * lease mechanism (§3.2)
+  "
   (:require [clojure.string :as str]
             [taoensso.timbre :as timbre]
             [schema.core :as s]))
