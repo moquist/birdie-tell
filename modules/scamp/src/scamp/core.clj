@@ -277,14 +277,13 @@ TODO:
 (defmethod receive-msg :default
   [& args]
   (let [[_message-type {:keys [logging]} & _rest] args]
-    (if logging
+    (when logging
       ;; TODO: If an unknown message type is received, gracefully shut
       ;; down to allow restart with an upgrade?
       (timbre/log* logging :error
                    :receive-msg-unknown-message-type
-                   :args args)
-      (prn "Error: unknown message type received by 'receive-msg."
-           :args args))))
+                   :args args))
+    (throw (ex-info "Error: unknown message type received by 'receive-msg." {:args args}))))
 
 (s/defmethod receive-msg :new-subscription :- CommUpdateSchema
   #_"Add 'subscription to :upstream.
