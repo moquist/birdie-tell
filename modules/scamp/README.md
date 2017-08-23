@@ -11,8 +11,8 @@ SCAMP = SCAlable Membership Protocol
 
 ## TODO
 
-. Implement HyParView
-. Evaluate results for clumping: https://arxiv.org/pdf/0906.0612.pdf
+1. Implement HyParView
+1. Evaluate results for clumping: https://arxiv.org/pdf/0906.0612.pdf
 
 ## License
 
