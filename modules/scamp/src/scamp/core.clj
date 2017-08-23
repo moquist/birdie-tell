@@ -566,6 +566,30 @@ TODO:
        (update-in [:downstream] util/set-disclude node-to-remove))
    []])
 
+(s/defmethod receive-msg :node-replacement :- CommUpdateSchema
+  #_ "Take 'config, a 'node, and a message body consisting of an :old
+   node-contact-address and a :new node-contact-address.
+   Replace all 'node's :upstream and :downstream references to
+   :old with :new.
+
+   It's OK to replace both :upstream and :downstream indiscriminately,
+   because the same replacement needs to be done in both.
+
+   Return updated 'node."
+  [_message-type :- MessageTypesSchema
+   {:keys [logging] :as _cluster-config}
+   {:keys [upstream downstream] :as node} :- NetworkedNodeSchema
+   {:keys [old new] :as _body} :- s/Any
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
+               :receive-msg-node-replacement
+               :body _body
+               :node node)
+  (let [node (assoc node
+                    :upstream (util/set-swap upstream old new)
+                    :downstream (util/set-swap downstream old new))]
+    [node []]))
+
 (s/defmethod receive-msg :heartbeat :- CommUpdateSchema
   #_"Take 'config and a 'node, and update :heartbeat-timeout-milli-time.
 
