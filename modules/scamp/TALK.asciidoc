@@ -1,5 +1,7 @@
 = SCAMP update
 
+(Yes, I realize this file has local links to images I'm not pushing. Sorry!)
+
 . The problem: distributed agreement
 .. Solution: Paxos/Raft protocols
 ... What it is: Leader election, full cluster membership knowledge required, transactional cluster agreement
@@ -9,22 +11,46 @@
 .... P = Partition tolerance (The system continues to operate despite an arbitrary number of messages being dropped (or delayed) by the network between nodes --wikipedia)
 ... Scalability comments: voting rounds require en masse communication from the leader to all followers (larger cluster = slower voting rounds and increasing liklihood of partitioning)
 ... When to use Paxos/Raft: if you need Consistency and Availability guarantees and are willing to tolerate downtime in the case of a Partition (network interruption) within the cluster
+... Examples of usage: ?
 .. Solution: Gossip protocols
 ... What it is: the implementation of a metaphor
 ... CAP Rating: -AP
 ... Scalability comments: gossip protocols rely on redundant communication, but hopefully only among smaller sub-clusters of nodes
-. Naive implementation (November, 2015)
+... Examples: DynamoDB, Riak, ...
+. https://github.com/moquist/birdie-tell/tree/master/modules/naive[Naive implementation (November, 2015)]
 .. used TCP for comm, every node had membership list of entire cluster, messages were passed from each node to all of its downstream nodes
 .. Doing this exposed me quickly to the hard parts of designing a good gossip protocol
 .. BIG PROBLEM: if every node needs to know the membership of the entire cluster, then we already need to solve the distributed agreement problem that Paxos and Raft address.
 .. BIG QUESTION: How to maintain cluster membership in a way that yields any of the purported benefits of gossip?
 .. Additional problem: scaling would be horrible, we have a mesh network requirement: _n_ nodes require _n^2^_ edges
+... Illustration for a 50-node cluster: file:///Users/moquist/scamp-pics/mesh.dot.png
+... We need the number of edges to scale at __< n^2^__ for gossip to be feasible.
+
+. "SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol"
+.. https://www.cs.cornell.edu/~asdas/research/dsn02-swim.pdf
+.. 2002
+. "HyParView: a membership protocol for reliable gossip-based broadcast"
+.. http://asc.di.fct.unl.pt/~jleitao/pdf/dsn07-leitao.pdf
+.. 2007
+... AND: http://asc.di.fct.unl.pt/~jleitao/pdf/srds07-leitao.pdf[Epidemic Broadcast Trees]
 . SCAMP = SCAlable Membership Protocol
-.. Defined in \"Peer-to-Peer Membership Management for Gossip-Based Protocols\": https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ieee_tocs.pdf
-.. In SCAMP, each node 
+.. "Peer-to-Peer Membership Management for Gossip-Based Protocols"
+.. https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ieee_tocs.pdf
+.. 2003
+.. In SCAMP, each node is aware of a small subset of the rest of the cluster nodes, :downstream (and :upstream)
+.. These local membership lists scale at a rate of __n log n__.
+.. Review MessageTypesSchema
+.. Demo unsubscription
+... file:///Users/moquist/scamp-pics/unsubscription-01.dot.png
+... And after node 4 unsubscribes: file:///Users/moquist/scamp-pics/unsubscription-02.dot.png
 
 == TODO
 
 . Implement HyParView
 . Evaluate results for clumping: https://arxiv.org/pdf/0906.0612.pdf
 
+== Thanks to
+
+. Sean Cribbs, for his talk https://www.infoq.com/presentations/protocols-membership-dissemination-population[Membership, Dissemination, and Population Protocols]
+. Jonathan Claggett, who suggested that gossip protocols were interesting as we sat down together in Seattle. I read the wikipedia article real quick while I had Internet access and started on the naive implementation, which was still not done when we landed in Boston.
+. Other friends and colleagues who have reviewed this work so far, or talked through it with me.
