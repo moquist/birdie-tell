@@ -131,11 +131,6 @@
    :heartbeat-interval-in-millis s/Int
    :heartbeat-timeout-in-millis s/Int})
 
-(def WorldSchema
-  {:message-envelopes [MessageEnvelopeSchema]
-   :config ClusterConfigSchema
-   :network {NodeContactAddressSchema NetworkedNodeSchema}})
-
 (def CommUpdateSchema
   [(s/one (s/maybe NetworkedNodeSchema) "networked node (recipient of processed message)")
    ;; zereo or more new messages
@@ -186,15 +181,6 @@ TODO:
   {:new-node-contact-address "node-id6"
    :contact-address "node-id1" ; clustered node-contact-address
    })
-
-(def sample-world
-  {:message-envelopes []
-   :config default-config
-   :network {"node-id0" {:self {:id "node-id0"}
-                         :downstream #{}
-                         :upstream #{}
-                         :messages-seen {}}
-             "node-id1" sample-node}})
 
 (s/defn node->node-contact-address :- NodeContactAddressSchema
   "Take a 'node, and return the contact address for the node.
@@ -398,12 +384,6 @@ TODO:
       (and send-next-heartbeats-milli-time (<= send-next-heartbeats-milli-time milli-time))
       send-next-heartbeats-fn)))
 
-(s/defn world-do-async-processing :- WorldSchema
-  [world :- WorldSchema]
-  (let [comm-updates (mapcat (partial node-do-async-processing (:config world)) (-> world :network vals))]
-    #_(println :t (*milli-time*) :comm-updates comm-updates)
-    world))
-
 (s/defmethod receive-msg :new-upstream-node :- CommUpdateSchema
   #_"Take a node and a new 'upstream-node-contact-address.
    Add the 'upstream-node-contact-address to :upstream.
@@ -461,65 +441,6 @@ TODO:
           (throw (ex-info "Failed either to accept or forward subscription"
                           {:node node :subscriber-contact-address subscriber-contact-address})))
         [node forwarded-subscription-messages]))))
-
-(def new-world
-  "Return a new, pristine world."
-  {:message-envelopes []
-   :config default-config
-   :network {}})
-
-(s/defn world-add-new-node :- WorldSchema
-  "Update world to 'turn on' node."
-  [world :- WorldSchema
-   networked-node :- NetworkedNodeSchema]
-  (assoc-in world [:network (node->node-contact-address (:self networked-node))]
-            networked-node))
-
-(s/defn world-add-messages :- WorldSchema
-  "Given 'world and new messages to add, return 'world with the new
-  messages added."
-  [world :- WorldSchema
-   new-messages :- [MessageEnvelopeSchema]]
-  (update-in world [:message-envelopes] util/concatv new-messages))
-
-(s/defn get-node-from-world :- NetworkedNodeSchema
-  [world :- WorldSchema
-   node-contact-address :- NodeContactAddressSchema]
-  (get-in world [:network node-contact-address]))
-
-(s/defn world-subscribe-new-node :- WorldSchema
-  "Given 'world, a 'new-node-contact-address for the node that is
-  subscribing, and a 'node, add 'new-node-contact-address to 'world
-  and inject a :new-subscription message into 'world.
-
-  Return 'world with the new node and a :new-subscription message.
-
-  [1] 2.2.1 Subscription: Algorithm 1"
-  [world :- WorldSchema
-   new-node-contact-address :- NodeContactAddressSchema
-   contact-node-address :- NodeContactAddressSchema]
-  (let [new-node (init-new-subscriber (:config world)
-                                      new-node-contact-address
-                                      contact-node-address)
-        new-subscription-message (msg->envelope contact-node-address
-                                                :new-subscription
-                                                new-node-contact-address)]
-    (-> world
-        (world-add-new-node new-node)
-        (world-add-messages [new-subscription-message]))))
-
-(s/defn world-instruct-node-to-unsubscribe :- WorldSchema
-  "This is a mechanism to make unsubscription happen in this toy
-  implementation by inserting a message into 'world from outside the
-  'world.
-
-  Given 'world and the id of a node that is unsubscribing, add a
-  :node-unsubscription message to and return 'world."
-  [world :- WorldSchema
-   node-to-unsubscribe :- NodeContactAddressSchema]
-  (world-add-messages world [(msg->envelope node-to-unsubscribe
-                                      :node-unsubscription
-                                      node-to-unsubscribe)]))
 
 (s/defmethod receive-msg :node-unsubscription :- CommUpdateSchema
   #_"Take 'config, a node, and the ID of a node that is unsubscribing.
@@ -693,44 +614,6 @@ TODO:
                      :destination-node destination-node
                      :envelope-id envelope-id)
         [destination-node []]))))
-
-(s/defn world-do-comm :- WorldSchema
-  "Take 'world. Process one message. Return new 'world."
-  [{:keys [config] :as world} :- WorldSchema]
-  (if (-> world :message-envelopes empty?)
-    world
-    (let [[[_ destination-node-id & message] & message-envelopes] (:message-envelopes world)
-          destination-node (get-in world [:network destination-node-id])
-          [new-destination-node new-message-envelopes] (read-mail config
-                                                                  destination-node
-                                                                  message)]
-      (tick-clock-millis!) ; This makes 1000 msg/"second" the upper bound of throughput.
-      (world-do-async-processing world)
-      (-> world
-          (assoc :message-envelopes (util/concatv message-envelopes new-message-envelopes))
-          (assoc-in [:network destination-node-id] new-destination-node)))))
-
-(s/defn world-do-all-comms :- WorldSchema
-  "Take 'world. Process communication until no unread messages remain.
-   Return world."
-  [world :- WorldSchema]
-  (if (-> world :message-envelopes empty?)
-    world
-    (recur (world-do-comm world))))
-
-(s/defn world->dot
-  [world :- WorldSchema]
-  (let [node-id->int #(str/replace % #"node-id" "")]
-    (str "digraph {"
-         (->> (:network world)
-              (reduce (fn [r [self {:keys [downstream]}]]
-                        (apply str r (map #(str (node-id->int self)
-                                                " -> "
-                                                (node-id->int %)
-                                                ";")
-                                          downstream)))
-                      ""))
-         "}")))
 
 (comment
   [1] "Peer-to-Peer Membership Management for Gossip-Based Protocols"
