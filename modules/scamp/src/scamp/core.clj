@@ -1,10 +1,12 @@
 (ns scamp.core
-  "Implement Gossip cluster membership protocol defined in \"Peer-to-Peer Membership Management
+  "\"He was a scamp; he is a hero!\" - Les Mis, p. 587
+
+  Implement Gossip cluster membership protocol defined in \"Peer-to-Peer Membership Management
   for Gossip-Based Protocols\".
   SCAMP = SCAlable Membership Protocol
   https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ieee_tocs.pdf
 
-  TODO:
+  Paper sections TODO:
     * DONE: subscription (§2.2.1, Algorithm 1)
     * DONE: subscription (§2.2.1, Algorithm 2)
     * DONE: unsubscription (§2.2.2)
