@@ -16,7 +16,8 @@
   "
   (:require [clojure.string :as str]
             [taoensso.timbre :as timbre]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [scamp.util :as util]))
 
 (s/set-fn-validation! true)
 
@@ -64,10 +65,6 @@
   [base-duration agitation-distance]
   (let [agitation (- (*rand* agitation-distance) (/ agitation-distance 2))]
     (int (+ base-duration agitation))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn- concatv [coll & colls]
-  (vec (apply concat coll colls)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema definitions
@@ -389,7 +386,7 @@ TODO:
                                   [(assoc node
                                           :send-next-heartbeats-milli-time
                                           (+ milli-time heartbeat-interval-in-millis))
-                                   (concatv msgs
+                                   (util/concatv msgs
                                            (mapv #(msg->envelope %
                                                                  :heartbeat
                                                                  this-node-contact-address)
@@ -483,7 +480,7 @@ TODO:
   messages added."
   [world :- WorldSchema
    new-messages :- [MessageEnvelopeSchema]]
-  (update-in world [:message-envelopes] concatv new-messages))
+  (update-in world [:message-envelopes] util/concatv new-messages))
 
 (s/defn get-node-from-world :- NetworkedNodeSchema
   [world :- WorldSchema
@@ -627,12 +624,7 @@ TODO:
                :receive-msg-node-unsubscription
                :replacement-messages replacement-messages
                :drop-me-msgs drop-me-msgs)
-      [(node->removed node) (concatv replacement-messages drop-me-msgs)])))
-
-(s/defn set-disclude :- #{s/Any}
-  [s :- #{s/Any}
-   to-remove :- s/Any]
-  (into #{} (remove #(= % to-remove) s)))
+      [(node->removed node) (util/concatv replacement-messages drop-me-msgs)])))
 
 (s/defmethod receive-msg :node-removal :- CommUpdateSchema
   #_"Take 'config, a 'node, and the contact address of a
@@ -650,8 +642,8 @@ TODO:
                :node node
                :node-to-remove node-to-remove)
   [(-> node
-       (update-in [:upstream] set-disclude node-to-remove)
-       (update-in [:downstream] set-disclude node-to-remove))
+       (update-in [:upstream] util/set-disclude node-to-remove)
+       (update-in [:downstream] util/set-disclude node-to-remove))
    []])
 
 (s/defmethod receive-msg :heartbeat :- CommUpdateSchema
@@ -715,7 +707,7 @@ TODO:
       (tick-clock-millis!) ; This makes 1000 msg/"second" the upper bound of throughput.
       (world-do-async-processing world)
       (-> world
-          (assoc :message-envelopes (concatv message-envelopes new-message-envelopes))
+          (assoc :message-envelopes (util/concatv message-envelopes new-message-envelopes))
           (assoc-in [:network destination-node-id] new-destination-node)))))
 
 (s/defn world-do-all-comms :- WorldSchema
