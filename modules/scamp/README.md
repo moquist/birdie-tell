@@ -1,14 +1,22 @@
 # scamp
 
-A Clojure library designed to ... well, that part is up to you.
+> He was a scamp; he is a hero!
+> - Les Misérables (Signet, p587)
+
+SCAMP = SCAlable Membership Protocol
 
 ## Usage
 
-FIXME
+`lein test`
+
+## TODO
+
+. Implement HyParView
+. Evaluate results for clumping: https://arxiv.org/pdf/0906.0612.pdf
 
 ## License
 
-Copyright © 2016 FIXME
+Copyright © 2016 Matt Oquist <moquist@majen.net>
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
