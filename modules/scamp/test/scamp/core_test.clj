@@ -40,28 +40,6 @@
   (is (= #{"susan" "howatch" "louis" "sachar"}
          (core/maybe-conj #{"susan" "howatch" "louis" "sachar"} "vinge" "vinge"))))
 
-(deftest world-subscribe-new-node-test
-  (scamp-test
-   #(is (= (-> core/new-world
-               (core/world-add-new-node (core/node-contact-address->node "node-id0"))
-               (core/world-subscribe-new-node "node-id1" "node-id0")
-               (dissoc :config)
-               purge-world-envelope-ids
-               purge-world-async-state)
-           {:message-envelopes
-            [[:message-envelope "node-id0" :new-subscription "node-id1"]],
-            :network
-            {"node-id0"
-             (assoc (core/node-contact-address->node "node-id0")
-                    :upstream #{},
-                    :downstream #{},
-                    :messages-seen {}),
-             "node-id1"
-             (assoc (core/node-contact-address->node "node-id1")
-                    :upstream #{},
-                    :downstream #{"node-id0"},
-                    :messages-seen {})}}))))
-
 (deftest forward-subscription-test
   (scamp-test
    #(binding [scamp.core/*rand* testing-rand*]
@@ -71,57 +49,6 @@
                         (map purge-envelope-id))]
         (is (= result
                [[:message-envelope "stuffy-node" :forwarded-subscription "allergen-free-node"]]))))))
-
-(defn world-with-subs [subscriptions-count]
-  (let [node-name #(str "node-id" %)
-        world (core/world-add-new-node core/new-world
-                                       (core/node-contact-address->node (node-name 0)))]
-    (loop [world world
-           n 0]
-      (if (>= n subscriptions-count)
-        world
-        (let [new-node-id-num (inc n)]
-          (recur (core/world-do-all-comms
-                  (core/world-subscribe-new-node world
-                                                 (node-name new-node-id-num)
-                                                 (node-name n)))
-                 new-node-id-num))))))
-
-(deftest do-comm-test
-  (scamp-test
-   #(binding [scamp.core/*rand* testing-rand*]
-      (let [world (world-with-subs 3)
-            end-world (-> (reduce
-                           (fn [world _n] (core/world-do-comm world))
-                           world
-                           (range 9))
-                          (dissoc :config)
-                          purge-world-envelope-ids)]
-        (is (= (purge-world-async-state end-world)
-               {:message-envelopes [],
-                :network
-                {"node-id0"
-                 (assoc (core/node-contact-address->node "node-id0")
-                        :upstream #{"node-id1"},
-                        :downstream #{"node-id2" "node-id3"},
-                        :messages-seen {"1" 1, "3" 1, "4" 1, "5" 5, "9" 1}),
-                 "node-id1"
-                 (assoc (core/node-contact-address->node "node-id1")
-                        :upstream #{"node-id2"},
-                        :downstream #{"node-id2" "node-id3" "node-id0"},
-                        :messages-seen {"2" 1, "4" 1, "5" 9, "9" 2, "10" 1, "11" 5}),
-                 "node-id2"
-                 (assoc (core/node-contact-address->node "node-id2")
-                        :upstream #{"node-id3" "node-id0" "node-id1"},
-                        :downstream #{"node-id3" "node-id1"},
-                        :messages-seen
-                        {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "9" 1, "11" 5}),
-                 "node-id3"
-                 (assoc (core/node-contact-address->node "node-id3")
-                        :upstream #{"node-id2" "node-id0" "node-id1"},
-                        :downstream #{"node-id2"},
-                        :messages-seen {"12" 1, "13" 1, "11" 3, "14" 1})}}
-               ))))))
 
 (deftest receive-msg-new-subscription-test
   (scamp-test
@@ -236,41 +163,6 @@
   (scamp-test
    #(is (= (core/msg->envelope "Esther" :new-subscription "Jonathan")
            [:message-envelope "Esther" :new-subscription "Jonathan" "1"]))))
-
-(s/defn do-comms :- core/WorldSchema
-  "Take 'world and 'n. Process up to 'n messages. Return new 'world.
-   If 'world has no :message-envelopes before 'n messages have been
-   processed, 'world is returned immediately."
-  [world :- core/WorldSchema
-   n :- s/Int]
-  (if (or (zero? n)
-          (empty? (:message-envelopes world)))
-    world
-    (recur (core/world-do-comm world) (dec n))))
-
-(deftest receive-msg-node-unsubscription-test
-  (scamp-test
-   #(binding [scamp.core/*rand* testing-rand*]
-      (let [world (-> (world-with-subs 43)
-                      core/world-do-all-comms
-                      (core/world-instruct-node-to-unsubscribe "node-id19")
-                      core/world-do-comm)]
-        (is (= (:message-envelopes world)
-               [[:message-envelope
-                 "node-id16"
-                 :node-replacement
-                 {:old "node-id19", :new "node-id21"}
-                 "286"]
-                [:message-envelope
-                 "node-id21"
-                 :node-replacement
-                 {:old "node-id19", :new "node-id16"}
-                 "287"]
-                [:message-envelope "node-id17" :node-removal "node-id19" "288"]
-                [:message-envelope "node-id20" :node-removal "node-id19" "289"]
-                [:message-envelope "node-id18" :node-removal "node-id19" "290"]
-                [:message-envelope "node-id23" :node-removal "node-id19" "291"]]
-               ))))))
 
 (deftest receive-msg-node-removal
   (scamp-test
