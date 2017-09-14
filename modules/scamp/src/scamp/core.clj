@@ -648,12 +648,4 @@ TODO:
   ;; dot -Tpng -O /tmp/wemp.dot
   ;; circo -Tpng -O /tmp/wemp.dot
 
-  (binding [scamp.core/*rand* testing-rand*]
-    (reset-rand-state!)
-    (let [world (-> (world-with-subs 243)
-                    core/world-do-all-comms
-                    (core/world-instruct-node-to-unsubscribe "node-id9")
-                    core/world-do-all-comms)]
-      (clojure.pprint/pprint world)))
-
   )
