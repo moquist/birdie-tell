@@ -13,6 +13,12 @@ SCAMP = SCAlable Membership Protocol
 
 1. Implement HyParView
 1. Evaluate results for clumping: https://arxiv.org/pdf/0906.0612.pdf
+1. define invariants...
+   1. think of this in terms of sub-strategic goal states
+   1. how many iterations of the gossip protocol does it take to get a message to every node (with probability X?)
+   1. what must the :downstream size be, in proportion to cluster size?
+   1. there is no downstream without a corresponding upstream
+   1. invariants about cluster shape (clumping, connectivity, partitionability?)
 
 ## License
 
