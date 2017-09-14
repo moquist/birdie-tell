@@ -174,6 +174,17 @@
       (spit (str output-filename-base "-02.dot") (main/world->dot world-2))
       )))
 
+(defn demo-unsubscription2 [output-filename-base]
+  (scamp-test/scamp-test
+   #(let [world (world-with-subs 6)
+          world-2 (-> world
+                      (main/world-instruct-node-to-unsubscribe "node-id4")
+                      (main/world-do-all-comms {:verbose? true}))
+          ]
+      (spit (str output-filename-base "-01.dot") (main/world->dot world))
+      (spit (str output-filename-base "-02.dot") (main/world->dot world-2))
+      )))
+
 (defn pprint-cluster [world]
   (->> world
        :network
