@@ -88,6 +88,7 @@
    (s/optional-key :removed?) s/Bool
    :send-next-heartbeats-milli-time (s/maybe s/Int)
    :heartbeat-timeout-milli-time (s/maybe s/Int)
+   ;; :clock-value (atom 7) ;; TODO: per-node reference clock
    })
 
 (def MessageTypesSchema
@@ -112,6 +113,8 @@
 
    ;; just for saying "Hi" and "please don't assume you've been partitioned from the rest of the cluster"
    :heartbeat
+
+   ;; more stuff that isn't here yet...
    ))
 
 (def MessageEnvelopeSchema
