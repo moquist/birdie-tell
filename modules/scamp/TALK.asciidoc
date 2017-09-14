@@ -9,14 +9,14 @@
 .... C = Consistency (Every read receives the most recent write or an error --wikipedia)
 .... A = Availability (Every request receives a (non-error) response – without guarantee that it contains the most recent write --wikipedia)
 .... P = Partition tolerance (The system continues to operate despite an arbitrary number of messages being dropped (or delayed) by the network between nodes --wikipedia)
-... Scalability comments: voting rounds require en masse communication from the leader to all followers (larger cluster = slower voting rounds and increasing liklihood of partitioning)
+... Scalability comments: voting rounds require en masse communication from the leader to all followers (larger cluster = slower voting rounds and increasing liklihood of partitioning), limited to 5, 7, 9(?!?) nodes
 ... When to use Paxos/Raft: if you need Consistency and Availability guarantees and are willing to tolerate downtime in the case of a Partition (network interruption) within the cluster
-... Examples of usage: ?
+... Examples of usage: zookeeper (-> Datomic, Kafka)
 .. Solution: Gossip protocols
 ... What it is: the implementation of a metaphor
 ... CAP Rating: -AP
-... Scalability comments: gossip protocols rely on redundant communication, but hopefully only among smaller sub-clusters of nodes
-... Examples: DynamoDB, Riak, ...
+... Scalability comments: gossip protocols rely on redundant communication, but hopefully only among smaller sub-clusters of nodes, can scale horizontally
+... Examples: DynamoDB, Riak, ... (Cassandra?)
 . https://github.com/moquist/birdie-tell/tree/master/modules/naive[Naive implementation (November, 2015)]
 .. used TCP for comm, every node had membership list of entire cluster, messages were passed from each node to all of its downstream nodes
 .. Doing this exposed me quickly to the hard parts of designing a good gossip protocol
