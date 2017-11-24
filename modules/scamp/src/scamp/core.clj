@@ -10,7 +10,9 @@
     * DONE: subscription (§2.2.1, Algorithm 1)
     * DONE: subscription (§2.2.1, Algorithm 2)
     * DONE: unsubscription (§2.2.2)
-    * heartbeats (§2.2.3) (partially done, first async feature because depends on concept of \"a long time\")
+    * DONE: heartbeats (§2.2.3) (This is the first async feature,
+                                 because it depends on the concept of
+                                 \"a long time\".)
     * subscription indirection (§3.1)
     * lease mechanism (§3.2)
   "
