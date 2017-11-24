@@ -26,7 +26,8 @@
             (assoc-in world [:network node-contact-address]
                       (assoc networked-node
                              :send-next-heartbeats-milli-time nil
-                             :heartbeat-timeout-milli-time nil)))
+                             :heartbeat-timeout-milli-time nil
+                             :clock nil)))
           world
           (:network world)))
 
@@ -56,7 +57,8 @@
 (defn world-with-subs [subscriptions-count]
   (let [node-name #(str "node-id" %)
         world (main/world-add-new-node main/world-base
-                                       (scamp/node-contact-address->node (node-name 0)))]
+                                       (scamp/node-contact-address->node (node-name 0)
+                                                                         {:clock (atom 0)}))]
     (loop [world world
            n 0]
       (if (>= n subscriptions-count)

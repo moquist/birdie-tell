@@ -82,7 +82,10 @@
                                                                         message)]
       (when (:verbose? options)
         (println "message to " destination-node-id ": " message))
-      (scamp/tick-clock-millis!) ; This makes 1000 msg/"second" the upper bound of throughput.
+      (doseq [[_ {:keys [clock] :as node}] (:network world)]
+        ;; This is a dirty hack to make time move forward, somehow.
+        (when clock (scamp/tick-clock-millis! clock))
+        )
       (world-do-async-processing world)
       (-> world
           (assoc :message-envelopes (util/concatv message-envelopes new-message-envelopes))

@@ -32,10 +32,7 @@
   (binding [scamp.core/*rand* testing-rand*]
     (core/reset-envelope-ids!)
     (reset-rand-state!)
-    (core/reset-clock!)
-    (let [x (f)]
-      #_(println :clock-value (core/*milli-time*))
-      x)))
+    (f)))
 
 (deftest maybe-conj-test
   (is (= #{"susan" "howatch" "louis" "sachar"}
@@ -187,9 +184,11 @@
                            :downstream #{"studdock" "feverstone" "hingest" "merlinus" "ironwood"}
                            :messages-seen {}
                            :send-next-heartbeats-milli-time 10
-                           :heartbeat-timeout-milli-time 15)]
+                           :heartbeat-timeout-milli-time 15
+                           :clock (atom 0))
+          clock (:clock node-base)]
       (testing "heartbeat sending"
-        (core/tick-clock-millis! 14)
+        (core/tick-clock-millis! clock 14)
         (is (= (core/node-do-async-processing core/default-config node-base)
                [(assoc node-base :send-next-heartbeats-milli-time 30014)
                 [[:message-envelope "merlinus" :heartbeat "lewis" "1"]
@@ -199,7 +198,7 @@
                  [:message-envelope "hingest" :heartbeat "lewis" "5"]]])))
 
       (testing "both heartbeat sending and heartbeat timeout"
-        (core/tick-clock-millis! 5)
+        (core/tick-clock-millis! clock 5)
         (is (= (core/node-do-async-processing core/default-config node-base)
                [(assoc node-base
                        :upstream #{}
@@ -215,9 +214,11 @@
 (deftest receive-msg-heartbeat-test
   (scamp-test
    #(let [node-base (assoc (core/node-contact-address->node "valjean")
-                           :heartbeat-timeout-milli-time 43)]
+                           :heartbeat-timeout-milli-time 43
+                           :clock (atom 0))
+          clock (:clock node-base)]
       (testing "heartbeat receiving"
-        (core/tick-clock-millis! 40)
+        (core/tick-clock-millis! clock 40)
         (is (= (core/receive-msg :heartbeat core/default-config node-base nil "envelope-7")
                [(assoc node-base
                        :heartbeat-timeout-milli-time 45040)
@@ -226,9 +227,11 @@
 (deftest heartbeats-test
   (scamp-test
    #(let [node-base (assoc (core/node-contact-address->node "valjean")
-                           :heartbeat-timeout-milli-time 43)]
+                           :heartbeat-timeout-milli-time 43
+                           :clock (atom 0))
+          clock (:clock node-base)]
       (testing "heartbeat receiving"
-        (core/tick-clock-millis! 40)
+        (core/tick-clock-millis! clock 40)
         (is (= (core/receive-msg :heartbeat core/default-config node-base nil "envelope-7")
                [(assoc node-base
                        :heartbeat-timeout-milli-time 45040)

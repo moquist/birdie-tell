@@ -42,21 +42,10 @@
   (nth coll (rand-int* (count coll))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Implement a binding-overridable "millisecond" application clock.
-(def ^:private clock-value-in-millis (atom 0))
+(defn tick-clock-millis! [clock-atom & [num-ticks]]
+  (swap! clock-atom + (or num-ticks 1)))
 
-(defn tick-clock-millis! [& [num-ticks]]
-  (swap! clock-value-in-millis + (or num-ticks 1)))
-
-(def ^:dynamic *milli-time*
-  ;; TODO: put a time in each node
-  (fn [] @clock-value-in-millis))
-
-(defn reset-clock!
-  "Reset 'clock-value-in-millis back to 0.
-  This should probably only be called from tests that need determinism."
-  []
-  (reset! clock-value-in-millis 0))
+(def ^:dynamic *milli-time* deref)
 
 (defn jitter-int
   "Given a 'base-duration in some numerical unit of time, and an
@@ -80,16 +69,29 @@
 
 (def MessageEnvelopeIdSchema s/Str)
 
-(def NetworkedNodeSchema
-  {:self NodeCoreSchema
-   :upstream NodeNeighborsSchema
+(def SelflessNodeSchema
+  {:upstream NodeNeighborsSchema
    :downstream NodeNeighborsSchema
    :messages-seen {MessageEnvelopeIdSchema s/Int}
    (s/optional-key :removed?) s/Bool
    :send-next-heartbeats-milli-time (s/maybe s/Int)
    :heartbeat-timeout-milli-time (s/maybe s/Int)
-   ;; :clock-value (atom 7) ;; TODO: per-node reference clock
+   :clock (s/maybe (s/atom s/Int))
    })
+
+(def SelflessNodeSchemaOptional
+  (->> SelflessNodeSchema
+       (map
+        (fn [[k v]]
+          (if (instance? schema.core.OptionalKey k)
+            [k v]
+            [(s/optional-key k) v])))
+       (into {})))
+
+(def NetworkedNodeSchema
+  (merge SelflessNodeSchema
+         {:self NodeCoreSchema}))
+
 
 (def MessageTypesSchema
   (s/enum
@@ -132,7 +134,9 @@
    :message-dup-drop-after s/Int
    :logging {s/Keyword s/Any}
    :heartbeat-interval-in-millis s/Int
-   :heartbeat-timeout-in-millis s/Int})
+   :heartbeat-timeout-in-millis s/Int
+   :node-clock-init-fn s/Any ; TODO: FIXME s/Fn isn't a thing
+   })
 
 (def CommUpdateSchema
   [(s/one (s/maybe NetworkedNodeSchema) "networked node (recipient of processed message)")
@@ -147,6 +151,9 @@ TODO:
   * distinguish better between node contact info (network address, map entry in (:network world)) and node itself
 "
 
+(defn atomic-clock [& initial-time-in-millis]
+  (atom (or initial-time-in-millis 0)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Defaults and samples
 (def default-config
@@ -159,6 +166,7 @@ TODO:
                     :level :debug)
     :heartbeat-interval-in-millis (* 30 1000)
     :heartbeat-timeout-in-millis (* 45 1000)
+    :node-clock-init-fn atomic-clock
     })
   )
 
@@ -206,14 +214,18 @@ TODO:
       node->node-contact-address))
 
 (s/defn node-contact-address->node :- NetworkedNodeSchema
-  "Take a node-contact-address, return a networked-node structure."
-  [node-contact-address :- NodeContactAddressSchema]
-  {:self {:id node-contact-address}
-   :upstream #{}
-   :downstream #{}
-   :messages-seen {}
-   :send-next-heartbeats-milli-time nil
-   :heartbeat-timeout-milli-time nil})
+  "Take a node-contact-address and optional 'init-vals;
+  return a networked-node structure."
+  [node-contact-address :- NodeContactAddressSchema
+   & [init-vals :- SelflessNodeSchemaOptional]]
+  (merge {:self {:id node-contact-address}
+          :upstream #{}
+          :downstream #{}
+          :messages-seen {}
+          :send-next-heartbeats-milli-time nil
+          :heartbeat-timeout-milli-time nil
+          :clock nil}
+         init-vals))
 
 (s/defn node->removed :- NetworkedNodeSchema
   [node :- NetworkedNodeSchema]
@@ -224,10 +236,14 @@ TODO:
 
 (s/defn init-node-async :- NetworkedNodeSchema
   "Take a node, initialize async-related settings"
-  [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as cluster-config} :- ClusterConfigSchema
-   node :- NetworkedNodeSchema]
-  (let [milli-time (*milli-time*)]
+  [{:keys [heartbeat-interval-in-millis
+           heartbeat-timeout-in-millis
+           node-clock-init-fn] :as cluster-config} :- ClusterConfigSchema
+   {:keys [clock] :as node} :- NetworkedNodeSchema]
+  (let [clock (if clock clock (node-clock-init-fn))
+        milli-time (*milli-time* clock)]
     (assoc node
+           :clock clock
            :send-next-heartbeats-milli-time (+ milli-time heartbeat-interval-in-millis)
            :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))))
 
@@ -358,9 +374,9 @@ TODO:
   [{:keys [heartbeat-interval-in-millis heartbeat-timeout-in-millis] :as config} :- ClusterConfigSchema
    {:keys [send-next-heartbeats-milli-time
            heartbeat-timeout-milli-time
-           downstream]
+           downstream clock]
     :as node} :- NetworkedNodeSchema]
-  (let [milli-time (*milli-time*)
+  (let [milli-time (*milli-time* clock)
         this-node-contact-address (networked-node->node-contact-address node)
         heartbeat-timeout-fn (fn [[node msgs]]
                                [(assoc node
@@ -599,13 +615,13 @@ TODO:
   Return a vector matching 'CommUpdateSchema."
   [_message-type :- MessageTypesSchema
    {:keys [logging heartbeat-timeout-in-millis]}
-   node :- NetworkedNodeSchema
+   {:keys [clock] :as node} :- NetworkedNodeSchema
    _body :- s/Any
    _envelope-id :- MessageEnvelopeIdSchema]
   (timbre/log* logging :trace
                :receive-msg-heartbeat
                :node node)
-  (let [milli-time (*milli-time*)]
+  (let [milli-time (*milli-time* clock)]
     [(assoc node :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))
      []]))
 
