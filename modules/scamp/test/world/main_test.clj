@@ -122,7 +122,6 @@
                     main/world-do-all-comms
                     (main/world-instruct-node-to-unsubscribe "node-id19")
                     main/world-do-comm)]
-      (clojure.pprint/pprint (:message-envelopes world))
       (is (= (:message-envelopes world)
              [[:message-envelope
                "node-id16"
