@@ -1,5 +1,6 @@
 (ns world.main-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.data :as cd]
+            [clojure.test :refer :all]
             [schema.core :as s]
             [world.main :as main]
             [scamp.core :as scamp]
@@ -150,43 +151,65 @@
      ;; TODO: which log is this supposed to be?
      (Math/log n)))
 
-(defn demo-unsubscription [output-filename-base]
+(defn demo-unsubscription []
   (scamp-test/scamp-test
    #(let [world (-> main/world-base
                     (assoc-in [:config :connection-redundancy] -1)
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id0")
                                                     :upstream #{"node-id2"}
-                                                    :downstream #{"node-id1"}))
+                                                    :downstream #{"node-id1"}
+                                                    :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id1")
                                                     :upstream #{"node-id0"}
-                                                    :downstream #{"node-id3" "node-id4"}))
+                                                    :downstream #{"node-id3" "node-id4"}
+                                                    :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id2")
                                                     :upstream #{"node-id4"}
-                                                    :downstream #{"node-id0"}))
+                                                    :downstream #{"node-id0"}
+                                                    :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id3")
                                                     :upstream #{"node-id1"}
-                                                    :downstream #{"node-id4"}))
+                                                    :downstream #{"node-id4"}
+                                                    :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id4")
                                                     :upstream #{"node-id1" "node-id3"}
-                                                    :downstream #{"node-id2"})))
+                                                    :downstream #{"node-id2"}
+                                                    :clock (scamp-test/test-clock))))
           world-2 (-> world
                       (main/world-instruct-node-to-unsubscribe "node-id4")
-                      (main/world-do-all-comms {:verbose? true}))
-          ]
-      (spit (str output-filename-base "-01.dot") (main/world->dot world))
-      (spit (str output-filename-base "-02.dot") (main/world->dot world-2))
-      )))
+                      (main/world-do-all-comms {:verbose? true}))]
+      {:world world
+       :world-2 world-2})))
 
-(defn demo-unsubscription2 [output-filename-base]
+(deftest test-demo-unsubscription
+  (let [{:keys [world world-2]} (demo-unsubscription)
+        [_in-a in-b _in-both] (cd/diff world world-2)]
+    (is (get-in in-b [:network "node-id4" :removed?]) "node-id4 has been removed")))
+
+(defn demo-unsubscription->dot [output-filename-base]
+  (let [{:keys [world world-2]} (demo-unsubscription)]
+    (spit (str output-filename-base "-01.dot") (main/world->dot world))
+    (spit (str output-filename-base "-02.dot") (main/world->dot world-2))))
+
+(defn demo-unsubscription2 [& [output-filename-base]]
   (scamp-test/scamp-test
    #(let [world (world-with-subs 6)
           world-2 (-> world
                       (main/world-instruct-node-to-unsubscribe "node-id4")
                       (main/world-do-all-comms {:verbose? true}))
           ]
-      (spit (str output-filename-base "-01.dot") (main/world->dot world))
-      (spit (str output-filename-base "-02.dot") (main/world->dot world-2))
-      )))
+      {:world world
+       :world-2 world-2})))
+
+(deftest test-demo-unsubscription2
+  (let [{:keys [world world-2]} (demo-unsubscription2)
+        [_in-a in-b _in-both] (cd/diff world world-2)]
+    (is (get-in in-b [:network "node-id4" :removed?]) "node-id4 has been removed")))
+
+(defn demo-unsubscription2->dot [& [output-filename-base]]
+  (let [{:keys [world world-2]} (demo-unsubscription2)]
+    (spit (str output-filename-base "-01.dot") (main/world->dot world))
+    (spit (str output-filename-base "-02.dot") (main/world->dot world-2))))
 
 (defn pprint-cluster [world]
   (->> world
