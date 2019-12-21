@@ -82,6 +82,8 @@
    })
 
 (def SelflessNodeSchemaOptional
+  "Just like SelflessNodeSchema, but every key is optional.
+  This is used for schema checking of init-value maps."
   (->> SelflessNodeSchema
        (map
         (fn [[k v]]
@@ -107,7 +109,7 @@
    ;; inform newly :downstream node that you are now in its :upstream
    :new-upstream-node
 
-   ;; I added this to make it possible to instruct a node to
+   ;; Not in SCAMP: added to make it possible to instruct a node to
    ;; unsubscribe.
    :node-unsubscription
 
@@ -183,8 +185,8 @@ TODO:
           ;; :port 2005
           }
 
-   ;; :partial-view :downstream
-   ;; :local-view :downstream
+   ;; :partial-view from [1] = :downstream
+   ;; :local-view from [1] = :downstream
    :downstream #{"node-id1" ; node-contact-address for node-id1
                  "node-id2" ; node-contact-address for node-id2
                  }
