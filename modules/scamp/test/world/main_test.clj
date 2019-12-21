@@ -220,12 +220,14 @@
 
 (comment
   (def mesh-size 100)
-  (spit "/tmp/mesh.dot" (str "digraph {"
-                             (apply str
-                                    (apply concat
-                                           (filter (complement nil?)
-                                                   (for [s (range mesh-size)]
-                                                     (for [d (range mesh-size)]
-                                                       (when (not= s d)
-                                                         (str s "->" d ";"))))))) "}"))
+  (let [mesh-size 100]
+    (println "dot -Tpng -O /tmp/mesh.dot")
+    (spit "/tmp/mesh.dot" (str "digraph {"
+                               (apply str
+                                      (apply concat
+                                             (filter (complement nil?)
+                                                     (for [s (range mesh-size)]
+                                                       (for [d (range mesh-size)]
+                                                         (when (not= s d)
+                                                           (str s "->" d ";"))))))) "}")))
   )
