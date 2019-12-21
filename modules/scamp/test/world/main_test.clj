@@ -60,7 +60,7 @@
   (let [node-name #(str "node-id" %)
         world (main/world-add-new-node main/world-base
                                        (scamp/node-contact-address->node (node-name 0)
-                                                                         {:clock (atom 0)}))]
+                                                                         {:clock (scamp-test/test-clock)}))]
     (loop [world world
            n 0]
       (if (>= n subscriptions-count)

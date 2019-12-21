@@ -6,6 +6,7 @@
 (s/set-fn-validation! true)
 
 (def random-instance (atom (java.util.Random.)))
+(defn test-clock [] (atom 0))
 
 (defn reset-rand-state! [& seed]
   (let [seed (or seed 43)]
@@ -187,7 +188,7 @@
                            :messages-seen {}
                            :send-next-heartbeats-milli-time 10
                            :heartbeat-timeout-milli-time 15
-                           :clock (atom 0))
+                           :clock (test-clock))
           clock (:clock node-base)]
       (testing "heartbeat sending"
         (core/tick-clock-millis! clock 14)
@@ -217,7 +218,7 @@
   (scamp-test
    #(let [node-base (assoc (core/node-contact-address->node "valjean")
                            :heartbeat-timeout-milli-time 43
-                           :clock (atom 0))
+                           :clock (test-clock))
           clock (:clock node-base)]
       (testing "heartbeat receiving"
         (core/tick-clock-millis! clock 40)
@@ -230,7 +231,7 @@
   (scamp-test
    #(let [node-base (assoc (core/node-contact-address->node "valjean")
                            :heartbeat-timeout-milli-time 43
-                           :clock (atom 0))
+                           :clock (test-clock))
           clock (:clock node-base)]
       (testing "heartbeat receiving"
         (core/tick-clock-millis! clock 40)
