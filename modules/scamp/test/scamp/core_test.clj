@@ -3,6 +3,8 @@
             [scamp.core :as core]
             [schema.core :as s]))
 
+(s/set-fn-validation! true)
+
 (def random-instance (atom (java.util.Random.)))
 
 (defn reset-rand-state! [& seed]
