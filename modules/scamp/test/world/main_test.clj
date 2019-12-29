@@ -46,15 +46,21 @@
             [[:message-envelope "node-id0" :new-subscription "node-id1"]],
             :network
             {"node-id0"
-             (assoc (scamp/node-contact-address->node "node-id0")
-                    :upstream #{},
-                    :downstream #{},
-                    :messages-seen {}),
+             {:self {:id "node-id0"},
+              :upstream {},
+              :downstream {},
+              :messages-seen {},
+              :send-next-heartbeats-milli-time nil,
+              :heartbeat-timeout-milli-time nil,
+              :clock nil},
              "node-id1"
-             (assoc (scamp/node-contact-address->node "node-id1")
-                    :upstream #{},
-                    :downstream #{"node-id0"},
-                    :messages-seen {})}}))))
+             {:self {:id "node-id1"},
+              :upstream {},
+              :downstream {"node-id0" {:weight 1/2}},
+              :messages-seen {},
+              :send-next-heartbeats-milli-time nil,
+              :heartbeat-timeout-milli-time nil,
+              :clock nil}}}))))
 
 
 (defn world-with-subs [subscriptions-count]
@@ -81,32 +87,52 @@
                          world
                          (range 9))
                         (dissoc :config)
-                        purge-world-envelope-ids)]
-      (is (= (purge-world-async-state end-world)
+                        purge-world-envelope-ids)
+          result (purge-world-async-state end-world)]
+      (is (= result
              {:message-envelopes [],
               :network
               {"node-id0"
-               (assoc (scamp/node-contact-address->node "node-id0")
-                      :upstream #{"node-id1"},
-                      :downstream #{"node-id2" "node-id3"},
-                      :messages-seen {"1" 1, "3" 1, "4" 1, "5" 5, "9" 1}),
+               {:self {:id "node-id0"},
+                :upstream {"node-id1" {:weight 1/2}},
+                :downstream {"node-id2" {:weight 1/2}, "node-id3" {:weight 1/2}},
+                :messages-seen {"1" 1, "3" 1, "4" 1, "5" 6, "9" 2},
+                :send-next-heartbeats-milli-time nil,
+                :heartbeat-timeout-milli-time nil,
+                :clock nil},
                "node-id1"
-               (assoc (scamp/node-contact-address->node "node-id1")
-                      :upstream #{"node-id2"},
-                      :downstream #{"node-id2" "node-id3" "node-id0"},
-                      :messages-seen {"2" 1, "4" 1, "5" 9, "9" 2, "10" 1, "11" 5}),
+               {:self {:id "node-id1"},
+                :upstream {"node-id2" {:weight 1/2}},
+                :downstream
+                {"node-id0" {:weight 1/2},
+                 "node-id2" {:weight 1/2},
+                 "node-id3" {:weight 1/2}},
+                :messages-seen {"2" 1, "4" 1, "5" 9, "9" 4, "10" 2, "11" 1},
+                :send-next-heartbeats-milli-time nil,
+                :heartbeat-timeout-milli-time nil,
+                :clock nil},
                "node-id2"
-               (assoc (scamp/node-contact-address->node "node-id2")
-                      :upstream #{"node-id3" "node-id0" "node-id1"},
-                      :downstream #{"node-id3" "node-id1"},
-                      :messages-seen
-                      {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "9" 1, "11" 5}),
+               {:self {:id "node-id2"},
+                :upstream
+                {"node-id0" {:weight 1/2},
+                 "node-id1" {:weight 1/2},
+                 "node-id3" {:weight 1/2}},
+                :downstream {"node-id1" {:weight 1/2}, "node-id3" {:weight 1/2}},
+                :messages-seen {"6" 1, "4" 1, "5" 10, "7" 1, "8" 1, "10" 2, "9" 7},
+                :send-next-heartbeats-milli-time nil,
+                :heartbeat-timeout-milli-time nil,
+                :clock nil},
                "node-id3"
-               (assoc (scamp/node-contact-address->node "node-id3")
-                      :upstream #{"node-id2" "node-id0" "node-id1"},
-                      :downstream #{"node-id2"},
-                      :messages-seen {"12" 1, "13" 1, "11" 3, "14" 1})}}
-             )))))
+               {:self {:id "node-id3"},
+                :upstream
+                {"node-id1" {:weight 1/2},
+                 "node-id2" {:weight 1/2},
+                 "node-id0" {:weight 1/2}},
+                :downstream {"node-id2" {:weight 1/2}},
+                :messages-seen {"12" 1, "13" 1, "9" 4, "14" 1},
+                :send-next-heartbeats-milli-time nil,
+                :heartbeat-timeout-milli-time nil,
+                :clock nil}}})))))
 
 (s/defn do-comms :- main/WorldSchema
   "Take 'world and 'n. Process up to 'n messages. Return new 'world.
@@ -127,20 +153,21 @@
                     main/world-do-comm)]
       (is (= (:message-envelopes world)
              [[:message-envelope
-               "node-id16"
+               "node-id20"
                :node-replacement
-               {:old "node-id19", :new "node-id21"}
-               "286"]
-              [:message-envelope
-               "node-id21"
-               :node-replacement
-               {:old "node-id19", :new "node-id16"}
+               {:old "node-id19", :new "node-id18"}
                "287"]
-              [:message-envelope "node-id17" :node-removal "node-id19" "288"]
-              [:message-envelope "node-id20" :node-removal "node-id19" "289"]
-              [:message-envelope "node-id18" :node-removal "node-id19" "290"]
-              [:message-envelope "node-id23" :node-removal "node-id19" "291"]]
-             )))))
+              [:message-envelope
+               "node-id18"
+               :node-replacement
+               {:old "node-id19", :new "node-id20"}
+               "288"]
+              [:message-envelope "node-id22" :node-removal "node-id19" "289"]
+              [:message-envelope "node-id17" :node-removal "node-id19" "290"]
+              [:message-envelope "node-id21" :node-removal "node-id19" "291"]
+              [:message-envelope "node-id20" :node-removal "node-id19" "292"]
+              [:message-envelope "node-id18" :node-removal "node-id19" "293"]
+              [:message-envelope "node-id16" :node-removal "node-id19" "294"]])))))
 
 (defn anticipated-scamp-arcs
   "Given 'connection-redundancy and 'n nodes, how many arcs is the
@@ -156,24 +183,26 @@
    #(let [world (-> main/world-base
                     (assoc-in [:config :connection-redundancy] -1)
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id0")
-                                                    :upstream #{"node-id2"}
-                                                    :downstream #{"node-id1"}
+                                                    :upstream {"node-id2" scamp/default-node-neighbor}
+                                                    :downstream {"node-id1" scamp/default-node-neighbor}
                                                     :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id1")
-                                                    :upstream #{"node-id0"}
-                                                    :downstream #{"node-id3" "node-id4"}
+                                                    :upstream {"node-id0" scamp/default-node-neighbor}
+                                                    :downstream {"node-id3" scamp/default-node-neighbor
+                                                                 "node-id4" scamp/default-node-neighbor}
                                                     :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id2")
-                                                    :upstream #{"node-id4"}
-                                                    :downstream #{"node-id0"}
+                                                    :upstream {"node-id4" scamp/default-node-neighbor}
+                                                    :downstream {"node-id0" scamp/default-node-neighbor}
                                                     :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id3")
-                                                    :upstream #{"node-id1"}
-                                                    :downstream #{"node-id4"}
+                                                    :upstream {"node-id1" scamp/default-node-neighbor}
+                                                    :downstream {"node-id4" scamp/default-node-neighbor}
                                                     :clock (scamp-test/test-clock)))
                     (main/world-add-new-node (assoc (scamp/node-contact-address->node "node-id4")
-                                                    :upstream #{"node-id1" "node-id3"}
-                                                    :downstream #{"node-id2"}
+                                                    :upstream {"node-id1" scamp/default-node-neighbor
+                                                               "node-id3" scamp/default-node-neighbor}
+                                                    :downstream {"node-id2" scamp/default-node-neighbor}
                                                     :clock (scamp-test/test-clock))))
           world-2 (-> world
                       (main/world-instruct-node-to-unsubscribe "node-id4")

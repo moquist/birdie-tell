@@ -14,4 +14,12 @@
    old new]
   (into #{} (map #(if (= % old) new %) s)))
 
-
+(defn key-swap
+  [node-neighbors old new]
+  {:pre [(map? node-neighbors)]
+   :post [(map? %)]}
+  (if-let [old-neighbor (node-neighbors old)]
+    (-> node-neighbors
+        (dissoc old)
+        (assoc new old-neighbor))
+    node-neighbors))

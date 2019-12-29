@@ -67,7 +67,7 @@
 
 (def NodeNeighborsSchema
   ;; TODO: decouple contact address and node ID.
-  #{NodeContactAddressSchema})
+  {NodeContactAddressSchema {:weight s/Num}})
 
 (def MessageEnvelopeIdSchema s/Str)
 
@@ -179,6 +179,9 @@ TODO:
     })
   )
 
+(def default-node-neighbor
+  {:weight 1/2})
+
 (def sample-node
   {:self {:id "node-id5"
           ;; :host "127.0.0.1"
@@ -187,13 +190,17 @@ TODO:
 
    ;; :partial-view from [1] = :downstream
    ;; :local-view from [1] = :downstream
-   :downstream #{"node-id1" ; node-contact-address for node-id1
+   :downstream {"node-id1" ; node-contact-address for node-id1
+                default-node-neighbor
                  "node-id2" ; node-contact-address for node-id2
+                default-node-neighbor
                  }
 
    ;; :in-view :upstream
-   :upstream #{"node-id3" ; node-contact-address for node-id3
+   :upstream {"node-id3" ; node-contact-address for node-id3
+              default-node-neighbor
                "node-id4" ; node-contact-address for node-id4
+              default-node-neighbor
                }
    :messages-seen {}})
 
@@ -228,13 +235,25 @@ TODO:
   [node-contact-address :- NodeContactAddressSchema
    & [init-vals :- SelflessNodeSchemaOptional]]
   (merge {:self {:id node-contact-address}
-          :upstream #{}
-          :downstream #{}
+          :upstream {}
+          :downstream {}
           :messages-seen {}
           :send-next-heartbeats-milli-time nil
           :heartbeat-timeout-milli-time nil
           :clock nil}
          init-vals))
+
+(s/defn node-contact-address->node-neighbors :- NodeNeighborsSchema
+  "Take a 'node-contact-address, and return an initialized node-neighbor."
+  [node-contact-address :- NodeContactAddressSchema]
+  {node-contact-address default-node-neighbor})
+
+(s/defn node-neighbors->contact-addresses :- [NodeContactAddressSchema]
+  [node-neighbors :- NodeNeighborsSchema]
+  (let [rand-comparator (fn [& x] (*rand*))]
+    (->> node-neighbors
+         keys
+         (sort-by identity rand-comparator))))
 
 (s/defn node->removed :- NetworkedNodeSchema
   [node :- NetworkedNodeSchema]
@@ -256,6 +275,17 @@ TODO:
            :send-next-heartbeats-milli-time (+ milli-time heartbeat-interval-in-millis)
            :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))))
 
+(s/defn maybe-conj
+  "'conj 'new-node-contact-address into 'coll as long as
+  'this-node-contact-address and 'new-node-contact-address are
+  different."
+  [coll :- NodeNeighborsSchema
+   this-node-contact-address :- NodeContactAddressSchema
+   new-node-contact-address :- NodeContactAddressSchema]
+  (if (= this-node-contact-address new-node-contact-address)
+    coll
+    (assoc coll new-node-contact-address default-node-neighbor)))
+
 (s/defn init-new-subscriber :- NetworkedNodeSchema
   "Take a 'subscriber-address for a new subscriber, and the
   'contact-node handling the subscription, and return an initialized
@@ -267,7 +297,7 @@ TODO:
     (-> subscriber-address
         node-contact-address->node
         init-fn
-        (assoc :downstream #{contact-node}))))
+        (assoc-in [:downstream contact-node] default-node-neighbor))))
 
 (s/defn subscription-acceptance-probability :- ProbabilitySchema
   "Determine the probability that a node will accept a subscription
@@ -285,17 +315,6 @@ TODO:
    msg-type
    msg-body
    (*get-envelope-id*)])
-
-(s/defn maybe-conj
-  "'conj 'new-node-contact-address into 'coll as long as
-  'this-node-contact-address and 'new-node-contact-address are
-  different."
-  [coll :- #{NodeContactAddressSchema}
-   this-node-contact-address :- NodeContactAddressSchema
-   new-node-contact-address :- NodeContactAddressSchema]
-  (if (= this-node-contact-address new-node-contact-address)
-    coll
-    (conj coll new-node-contact-address)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; receive-msg
@@ -343,13 +362,13 @@ TODO:
                          []
 
                          ;; Forward subscription to :downstream.
-                         (let [downstream (sort downstream)
+                         (let [downstream (node-neighbors->contact-addresses downstream)
                                downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
                                                    downstream
                                                    (range connection-redundancy))]
                            (mapv
-                            (fn [node-id]
-                              (msg->envelope node-id
+                            (fn [node-contact-address]
+                              (msg->envelope node-contact-address
                                              :forwarded-subscription
                                              subscription))
                             downstream+)))]
@@ -373,7 +392,7 @@ TODO:
   (if (empty? downstream)
     []
     [[:message-envelope
-      (rand-nth* (sort downstream))
+      (rand-nth* (node-neighbors->contact-addresses downstream))
       :forwarded-subscription
       subscription
       envelope-id]]))
@@ -391,8 +410,8 @@ TODO:
                                [(assoc node
                                        :heartbeat-timeout-milli-time nil
                                        ;; TODO: ditch :upstream, keep :downstream?
-                                       :upstream #{})
-                                (conj msgs (msg->envelope (rand-nth* (sort downstream))
+                                       :upstream {})
+                                (conj msgs (msg->envelope (rand-nth* (node-neighbors->contact-addresses downstream))
                                                           :new-subscription
                                                           this-node-contact-address))])
         send-next-heartbeats-fn (fn [[node msgs]]
@@ -403,7 +422,7 @@ TODO:
                                            (mapv #(msg->envelope %
                                                                  :heartbeat
                                                                  this-node-contact-address)
-                                                 downstream))])]
+                                                 (node-neighbors->contact-addresses downstream)))])]
     (cond-> [node []]
       (and heartbeat-timeout-milli-time (<= heartbeat-timeout-milli-time milli-time))
       heartbeat-timeout-fn
@@ -524,9 +543,8 @@ TODO:
       (throw (ex-info "Received :node-unsubscription for other node."
                       {:unsubscribing-node-id unsubscribing-node-id})))
 
-    (let [rand-comparator (fn [& x] (*rand*))
-          upstream-nodes (sort-by identity rand-comparator (:upstream node))
-          downstream-nodes (sort-by identity rand-comparator (:downstream node))
+    (let [upstream-nodes (node-neighbors->contact-addresses (:upstream node))
+          downstream-nodes (node-neighbors->contact-addresses (:downstream node))
           num-upstream-to-drop (inc connection-redundancy)
 
           upstream-replacements (drop num-upstream-to-drop upstream-nodes)
@@ -590,8 +608,8 @@ TODO:
                :node node
                :node-to-remove node-to-remove)
   [(-> node
-       (update-in [:upstream] util/set-disclude node-to-remove)
-       (update-in [:downstream] util/set-disclude node-to-remove))
+       (update-in [:upstream] dissoc node-to-remove)
+       (update-in [:downstream] dissoc node-to-remove))
    []])
 
 (s/defmethod receive-msg :node-replacement :- CommUpdateSchema
@@ -613,9 +631,10 @@ TODO:
                :receive-msg-node-replacement
                :body _body
                :node node)
-  (let [node (assoc node
-                    :upstream (util/set-swap upstream old new)
-                    :downstream (util/set-swap downstream old new))]
+
+  (let [node (-> node
+                 (update :upstream util/key-swap old new)
+                 (update :downstream util/key-swap old new))]
     [node []]))
 
 (s/defmethod receive-msg :heartbeat :- CommUpdateSchema
