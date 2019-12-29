@@ -41,11 +41,11 @@
    new-node-contact-address :- scamp/NodeContactAddressSchema
    contact-node-address :- scamp/NodeContactAddressSchema]
   (let [new-node (scamp/init-new-subscriber (:config world)
-                                           new-node-contact-address
-                                           contact-node-address)
+                                            new-node-contact-address
+                                            contact-node-address)
         new-subscription-message (scamp/msg->envelope contact-node-address
-                                                     :new-subscription
-                                                     new-node-contact-address)]
+                                                      :new-subscription
+                                                      new-node-contact-address)]
     (-> world
         (world-add-new-node new-node)
         (world-add-messages [new-subscription-message]))))

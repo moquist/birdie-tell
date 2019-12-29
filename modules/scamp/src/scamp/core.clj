@@ -475,7 +475,7 @@ TODO:
              ;; the subscription id is not already in node's downstream,
              ;; so check the probability that we add it to this node.
              (do-probability (subscription-acceptance-probability downstream)))
-      [(update-in node [:downstream] maybe-conj self-id subscriber-contact-address)
+      [(update node :downstream maybe-conj self-id subscriber-contact-address)
        [(msg->envelope subscriber-contact-address
                        :new-upstream-node
                        (networked-node->node-contact-address node))]]
