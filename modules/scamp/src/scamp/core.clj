@@ -65,9 +65,12 @@
 (def NodeCoreSchema
   {:id NodeContactAddressSchema})
 
+(def NodeNeighborWeightSchema
+  (s/both s/Num (s/pred pos? 'pos?)))
+
 (def NodeNeighborsSchema
   ;; TODO: decouple contact address and node ID.
-  {NodeContactAddressSchema {:weight s/Num}})
+  {NodeContactAddressSchema {:weight NodeNeighborWeightSchema}})
 
 (def MessageEnvelopeIdSchema s/Str)
 
@@ -331,6 +334,26 @@ TODO:
                    :receive-msg-unknown-message-type
                    :args args))
     (throw (ex-info "Error: unknown message type received by 'receive-msg." {:args args}))))
+
+(s/defn rebalance-to-1 :- [s/Any]
+  "The specified 'weights (any seq of numbers) are rebalanced to sum to 1.
+   3.1 Indirection: Algorithm 3"
+  [weights :- [s/Num]]
+  (let [denominator (apply + weights)]
+    (map #(/ % denominator) weights)))
+
+(s/defn rebalance-arc-weights :- NodeNeighborsSchema
+  [node-neighbors :- NodeNeighborsSchema]
+  (let [ordered-neighbors (seq node-neighbors)
+        ks (map first ordered-neighbors)
+        weights (->> ordered-neighbors
+                     (map (comp :weight second))
+                     rebalance-to-1)
+        neighbor-weights (zipmap ks weights)]
+    (reduce (fn [r [node-contact-address neighbor-weight]]
+              (assoc-in r [node-contact-address :weight] neighbor-weight))
+            node-neighbors
+            neighbor-weights)))
 
 (s/defmethod receive-msg :new-subscription :- CommUpdateSchema
   #_"Add 'subscription to :upstream.

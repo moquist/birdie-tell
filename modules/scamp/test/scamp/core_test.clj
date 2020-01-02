@@ -1,5 +1,9 @@
 (ns scamp.core-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.math.numeric-tower :as math]
+            [clojure.test :refer [deftest is testing]]
+            [clojure.test.check :as tc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
             [scamp.core :as core]
             [schema.core :as s]))
 
@@ -262,6 +266,23 @@
              #{"Gandalf" "Gaffer" "Bilbo"}))
       (is (= (-> node :downstream keys set)
              #{"Sam" "Bilbo" "Meriadoc" "Peregrin"})))))
+
+(deftest rebalance-to-1-test
+  (let [sum-to-1 (prop/for-all (v (gen/vector (gen/such-that pos?
+                                                             (gen/fmap math/abs
+                                                                       (gen/one-of [gen/ratio gen/small-integer gen/nat gen/large-integer])))))
+                               (or (empty? v)
+                                   (= 1 (apply + (core/rebalance-to-1 v)))))
+        {:as qc-report
+         :keys [result]} (tc/quick-check 100000 sum-to-1)]
+    (when-not result
+      (prn qc-report))
+    (is result)))
+
+(deftest rebalance-arc-weights-test
+  (let [node-neighbors {"node1" {:weight 1} "node2" {:weight 2} "node3" {:weight 3}}]
+    (is (= {"node1" {:weight 1/6} "node2" {:weight 1/3} "node3" {:weight 1/2}}
+           (core/rebalance-arc-weights node-neighbors)))))
 
 ;; TODO: set up a world with enough nodes to have some interesting upstream/downstream, maybe manaully set a couple to have shorter heartbeat-timeouts than the send-next-heartbeats-milli-time of everything else, so they unsubscribe and re-subscribe
 
