@@ -128,6 +128,9 @@
    ;; partitioned from the rest of the cluster"
    :heartbeat
 
+   ;; arc weight rebalancing message
+   :arc-weight-rebalance
+
    ;; more stuff that isn't here yet...
    ))
 
@@ -137,6 +140,12 @@
    (s/one MessageTypesSchema "envelope message type")
    (s/one s/Any "envelope body")
    (s/one MessageEnvelopeIdSchema "envelope id")])
+
+(def MessageBodyArcWeightRebalanceSchema
+  ;; TODO: create MessageEnvelopeArcWeightRebalanceSchema to ensure that the envelope destination matches either the :upstream-node or the :downstream-node.
+  {:upstream-node NodeContactAddressSchema
+   :downstream-node NodeContactAddressSchema
+   :weight NodeNeighborWeightSchema})
 
 (def SubscriptionSchema
   NodeContactAddressSchema)
@@ -354,6 +363,44 @@ TODO:
               (assoc-in r [node-contact-address :weight] neighbor-weight))
             node-neighbors
             neighbor-weights)))
+
+(s/defn node-rebalance-arc-weights :- CommUpdateSchema
+  "Take a node, rebalance its arc-weights, and return the node and the
+  messages to :upstream and :downstream nodes to communicate the
+  rebalanced weights."
+  [{:keys [logging] :as cluster-config}
+   {:keys [upstream downstream] :as node} :- NetworkedNodeSchema]
+  (timbre/log* logging :trace
+               :node-rebalance-arc-weights
+               :node node)
+  (let [my-contact-address (-> node :self node->node-contact-address)
+        new-upstream (rebalance-arc-weights upstream)
+        new-downstream (rebalance-arc-weights downstream)
+        u-messages (->> new-upstream
+                        (map (fn raw-upstream* [[nca {:as node-neighbor :keys [weight]}]]
+                               (when (not= (upstream nca) node-neighbor) ; don't send NOOP messages
+                                 (msg->envelope nca
+                                                :arc-weight-rebalance
+                                                {:upstream-node nca
+                                                 :downstream-node my-contact-address
+                                                 :weight weight}))))
+                        (filter identity))
+        d-messages (->> new-downstream
+                        (map (fn raw-downstream* [[nca {:as node-neighbor :keys [weight]}]]
+                               (when (not= (downstream nca) node-neighbor) ; don't send NOOP messages
+                                 (msg->envelope nca
+                                                :arc-weight-rebalance
+                                                {:upstream-node my-contact-address
+                                                 :downstream-node nca
+                                                 :weight weight}))))
+                        (filter identity))]
+    [(-> node (assoc :downstream new-downstream
+                     :upstream new-upstream))
+     ;; TODO: How does the convergence change if these messages are interleaved or randomized?
+     (util/concatv u-messages d-messages)]))
+
+;; TODO: figure out the discussion of initial weights on left column of p5
+;; TODO: create rebalancing message type and messages and tests
 
 (s/defmethod receive-msg :new-subscription :- CommUpdateSchema
   #_"Add 'subscription to :upstream.
@@ -675,6 +722,35 @@ TODO:
   (let [milli-time (*milli-time* clock)]
     [(assoc node :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))
      []]))
+
+(s/defmethod receive-msg :arc-weight-rebalance :- CommUpdateSchema
+  #_ "Take 'config and a 'node, and update the arc weight for the
+   specified upstream or downstream neighbor.
+
+   Return a vector matching 'CommUpdateSchema."
+  [_message-type :- MessageTypesSchema
+   {:keys [logging]}
+   {:keys [upstream downstream] :as node} :- NetworkedNodeSchema
+   {:keys [upstream-node downstream-node weight] :as _body} :- MessageBodyArcWeightRebalanceSchema
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
+               :arc-weight-rebalance
+               :node node
+               :body _body)
+  (let [this-node (-> node :self node->node-contact-address)
+        path (if (= this-node upstream-node)
+               [:downstream downstream-node :weight]
+               [:upstream upstream-node :weight])
+        updated-node (if (get-in node path)
+                       (assoc-in node path weight)
+                       (do
+                         (timbre/log* logging :error
+                                      :arc-weight-rebalance-missing-arc
+                                      path
+                                      :node node
+                                      :body _body)
+                         node))]
+    [updated-node []]))
 
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.

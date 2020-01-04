@@ -284,6 +284,60 @@
     (is (= {"node1" {:weight 1/6} "node2" {:weight 1/3} "node3" {:weight 1/2}}
            (core/rebalance-arc-weights node-neighbors)))))
 
+(deftest node-rebalance-arc-weights-test
+  (let [org-upstream (node-contact-addresses->node-neighbors
+                      ["Gandalf" "Gaffer" "Gollum"])
+        org-downstream (node-contact-addresses->node-neighbors
+                        ["Sam" "Gollum" "Meriadoc" "Peregrin"])
+        expected-upstream-weight (/ 1 (count org-upstream))
+        expected-downstream-weight (/ 1 (count org-downstream))
+        this-node "Frodo"
+        starting-node (assoc (core/node-contact-address->node this-node)
+                             :upstream org-upstream
+                             :downstream org-downstream)
+
+        [{:as node :keys [upstream downstream]} messages]
+        (core/node-rebalance-arc-weights core/default-config starting-node)]
+    (is (every? (fn [[_k {:keys [weight]}]]
+                  (= weight expected-upstream-weight))
+                upstream))
+    (is (every? (fn [[_k {:keys [weight]}]]
+                  (= weight expected-downstream-weight))
+                downstream))
+    (is (every? (fn [[_ _ _ body _]]
+                  (let [{:keys [upstream-node downstream-node weight]} body]
+                    (condp = this-node
+                      downstream-node (= weight expected-upstream-weight)
+                      upstream-node (= weight expected-downstream-weight)
+                      false)))
+                messages))))
+
+(deftest receive-msg-arc-weight-rebalance-test
+  (let [org-upstream (node-contact-addresses->node-neighbors
+                      ["Gandalf" "Gaffer" "Gollum"])
+        org-downstream (node-contact-addresses->node-neighbors
+                        ["Sam" "Gollum" "Meriadoc" "Peregrin"])
+        this-node "Frodo"
+        starting-node (assoc (core/node-contact-address->node this-node)
+                             :upstream org-upstream
+                             :downstream org-downstream)
+        [node1] (core/receive-msg :arc-weight-rebalance
+                                  core/default-config
+                                  starting-node
+                                  {:upstream-node this-node :downstream-node "Meriadoc" :weight 7} "43")
+        [node2] (core/receive-msg :arc-weight-rebalance
+                                  core/default-config
+                                  starting-node
+                                  {:upstream-node "Gollum" :downstream-node this-node :weight 17} "43")
+        [node3] (core/receive-msg :arc-weight-rebalance
+                                  (assoc-in core/default-config [:logging :level] :fatal)
+                                  starting-node
+                                  {:upstream-node "Wiggum" :downstream-node this-node :weight 97} "43")
+        ]
+    (is (= node1 (assoc-in starting-node [:downstream "Meriadoc" :weight] 7)))
+    (is (= node2 (assoc-in starting-node [:upstream "Gollum" :weight] 17)))
+    (is (= node3 starting-node))))
+
 ;; TODO: set up a world with enough nodes to have some interesting upstream/downstream, maybe manaully set a couple to have shorter heartbeat-timeouts than the send-next-heartbeats-milli-time of everything else, so they unsubscribe and re-subscribe
 
 ;; TODO: test unsubscription (and everything else) with :connection-redundancy 0
