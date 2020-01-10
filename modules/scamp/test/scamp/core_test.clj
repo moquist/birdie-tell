@@ -312,7 +312,7 @@
                       false)))
                 messages))))
 
-(deftest receive-msg-arc-weight-rebalance-test
+(deftest receive-msg-new-arc-weight-test
   (let [org-upstream (node-contact-addresses->node-neighbors
                       ["Gandalf" "Gaffer" "Gollum"])
         org-downstream (node-contact-addresses->node-neighbors
@@ -321,15 +321,15 @@
         starting-node (assoc (core/node-contact-address->node this-node)
                              :upstream org-upstream
                              :downstream org-downstream)
-        [node1] (core/receive-msg :arc-weight-rebalance
+        [node1] (core/receive-msg :new-arc-weight
                                   core/default-config
                                   starting-node
                                   {:upstream-node this-node :downstream-node "Meriadoc" :weight 7} "43")
-        [node2] (core/receive-msg :arc-weight-rebalance
+        [node2] (core/receive-msg :new-arc-weight
                                   core/default-config
                                   starting-node
                                   {:upstream-node "Gollum" :downstream-node this-node :weight 17} "43")
-        [node3] (core/receive-msg :arc-weight-rebalance
+        [node3] (core/receive-msg :new-arc-weight
                                   (assoc-in core/default-config [:logging :level] :fatal)
                                   starting-node
                                   {:upstream-node "Wiggum" :downstream-node this-node :weight 97} "43")

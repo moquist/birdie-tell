@@ -129,7 +129,7 @@
    :heartbeat
 
    ;; arc weight rebalancing message
-   :arc-weight-rebalance
+   :new-arc-weight
 
    ;; more stuff that isn't here yet...
    ))
@@ -380,7 +380,7 @@ TODO:
                         (map (fn raw-upstream* [[nca {:as node-neighbor :keys [weight]}]]
                                (when (not= (upstream nca) node-neighbor) ; don't send NOOP messages
                                  (msg->envelope nca
-                                                :arc-weight-rebalance
+                                                :new-arc-weight
                                                 {:upstream-node nca
                                                  :downstream-node my-contact-address
                                                  :weight weight}))))
@@ -389,7 +389,7 @@ TODO:
                         (map (fn raw-downstream* [[nca {:as node-neighbor :keys [weight]}]]
                                (when (not= (downstream nca) node-neighbor) ; don't send NOOP messages
                                  (msg->envelope nca
-                                                :arc-weight-rebalance
+                                                :new-arc-weight
                                                 {:upstream-node my-contact-address
                                                  :downstream-node nca
                                                  :weight weight}))))
@@ -723,7 +723,7 @@ TODO:
     [(assoc node :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))
      []]))
 
-(s/defmethod receive-msg :arc-weight-rebalance :- CommUpdateSchema
+(s/defmethod receive-msg :new-arc-weight :- CommUpdateSchema
   #_ "Take 'config and a 'node, and update the arc weight for the
    specified upstream or downstream neighbor.
 
@@ -734,7 +734,7 @@ TODO:
    {:keys [upstream-node downstream-node weight] :as _body} :- MessageBodyArcWeightRebalanceSchema
    _envelope-id :- MessageEnvelopeIdSchema]
   (timbre/log* logging :trace
-               :arc-weight-rebalance
+               :new-arc-weight
                :node node
                :body _body)
   (let [this-node (-> node :self node->node-contact-address)
@@ -745,7 +745,7 @@ TODO:
                        (assoc-in node path weight)
                        (do
                          (timbre/log* logging :error
-                                      :arc-weight-rebalance-missing-arc
+                                      :new-arc-weight-missing-arc
                                       path
                                       :node node
                                       :body _body)
