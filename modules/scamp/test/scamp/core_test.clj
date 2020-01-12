@@ -48,13 +48,13 @@
     (reset-rand-state!)
     (f)))
 
-(deftest maybe-conj-test
+(deftest maybe-neighbor-test
   (is (= (node-contact-addresses->node-neighbors ["susan" "howatch" "louis" "sachar"])
-         (core/maybe-conj (node-contact-addresses->node-neighbors ["susan" "howatch" "louis"])
+         (core/maybe-neighbor (node-contact-addresses->node-neighbors ["susan" "howatch" "louis"])
                           "vinge"
                           "sachar")))
   (is (= (node-contact-addresses->node-neighbors ["susan" "howatch" "louis" "sachar"])
-         (core/maybe-conj (node-contact-addresses->node-neighbors ["susan" "howatch" "louis" "sachar"])
+         (core/maybe-neighbor (node-contact-addresses->node-neighbors ["susan" "howatch" "louis" "sachar"])
                           "vinge"
                           "vinge"))))
 

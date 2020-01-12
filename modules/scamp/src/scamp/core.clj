@@ -287,7 +287,7 @@ TODO:
            :send-next-heartbeats-milli-time (+ milli-time heartbeat-interval-in-millis)
            :heartbeat-timeout-milli-time (+ milli-time heartbeat-timeout-in-millis))))
 
-(s/defn maybe-conj
+(s/defn maybe-neighbor
   "'conj 'new-node-contact-address into 'coll as long as
   'this-node-contact-address and 'new-node-contact-address are
   different."
@@ -427,7 +427,7 @@ TODO:
     (when (= self-id subscription)
       (throw (ex-info (str "Got own new subscription: " subscription) {:node node})))
 
-    (let [node (update node :upstream maybe-conj self-id subscription)
+    (let [node (update node :upstream maybe-neighbor self-id subscription)
           new-messages (if (empty? downstream)
                          ;; There is no 'downstream. No messages are needed, because the
                          ;; 'subscription node will already have 'node in its
@@ -519,7 +519,7 @@ TODO:
                :node node
                :upstream-node-contact-address upstream-node-contact-address)
   [(update node :upstream
-           maybe-conj
+           maybe-neighbor
            (networked-node->node-contact-address node)
            upstream-node-contact-address)
    []])
@@ -548,7 +548,7 @@ TODO:
              ;; the subscription id is not already in node's downstream,
              ;; so check the probability that we add it to this node.
              (do-probability (subscription-acceptance-probability downstream)))
-      [(update node :downstream maybe-conj self-id subscriber-contact-address)
+      [(update node :downstream maybe-neighbor self-id subscriber-contact-address)
        [(msg->envelope subscriber-contact-address
                        :new-upstream-node
                        (networked-node->node-contact-address node))]]
