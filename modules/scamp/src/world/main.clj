@@ -63,6 +63,18 @@
                                                   :cmd-unsubscribe
                                                   node-to-unsubscribe)]))
 
+(s/defn world-instruct-node-to-rebalance :- WorldSchema
+  "This is a mechanism to make rebalancing happen in this toy
+  implementation by inserting a message into 'world from outside the
+  'world.
+
+  Given 'world and the id of a node that should rebalance, add a
+  :cmd-rebalance-arc-weights message to and return 'world."
+  [world :- WorldSchema
+   node-to-rebalance :- scamp/NodeContactAddressSchema]
+  (world-add-messages world [(scamp/msg->envelope node-to-rebalance
+                                                  :cmd-rebalance-arc-weights
+                                                  nil)]))
 
 (s/defn world-do-async-processing :- WorldSchema
   [world :- WorldSchema]

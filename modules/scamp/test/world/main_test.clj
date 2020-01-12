@@ -192,6 +192,29 @@
       {:world world
        :world-2 world-2})))
 
+(defn demo-rebalancing
+  "Results in weighting toward nodes with small :upstream or :downstream, as applicable.
+
+  (time (clojure.pprint/pprint (demo-rebalancing 100)))
+
+  "
+  [n]
+  (scamp-test/scamp-test
+   #(let [world (world-with-subs 6)
+          node-names (->> world :network (map first) shuffle)
+          world-2 (reduce (fn [world-1 _]
+                            (prn :count _)
+                            (reduce (fn [world-2 node-name]
+                                      (-> world-2
+                                          (main/world-instruct-node-to-rebalance node-name)
+                                          (main/world-do-all-comms {:verbose? false})))
+                                    world-1
+                                    node-names))
+                          world
+                          (range n))]
+      (map (fn [[node-id node]] {node-id (select-keys node [:upstream :downstream])})
+           (:network world-2)))))
+
 (deftest test-demo-unsubscription2
   (let [{:keys [world world-2]} (demo-unsubscription2)
         [_in-a in-b _in-both] (cd/diff world world-2)]

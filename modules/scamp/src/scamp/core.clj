@@ -133,6 +133,9 @@
    ;; instruct a node to unsubscribe.
    :cmd-unsubscribe
 
+   ;; instruct a node to rebalance its arc weights
+   :cmd-rebalance-arc-weights
+
    ;; more stuff that isn't here yet...
    ))
 
@@ -756,6 +759,21 @@ TODO:
                                       :body _body)
                          node))]
     [updated-node []]))
+
+(s/defmethod receive-msg :cmd-rebalance-arc-weights :- CommUpdateSchema
+  #_ "Take 'config and a 'node, and call 'rebalance-arc-weights for
+   'node.
+
+   Return a vector matching 'CommUpdateSchema."
+  [_message-type :- MessageTypesSchema
+   {:keys [logging] :as cluster-config}
+   node :- NetworkedNodeSchema
+   _body :- (s/pred nil?)
+   _envelope-id :- MessageEnvelopeIdSchema]
+  (timbre/log* logging :trace
+               :cmd-rebalance-arc-weights
+               :node node)
+  (node-rebalance-arc-weights cluster-config node))
 
 (s/defn read-mail :- CommUpdateSchema
   "Take a 'destination-node and a message.
