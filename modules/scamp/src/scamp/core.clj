@@ -260,11 +260,6 @@ TODO:
           :clock nil}
          init-vals))
 
-(s/defn node-contact-address->node-neighbors :- NodeNeighborsSchema
-  "Take a 'node-contact-address, and return an initialized node-neighbor."
-  [node-contact-address :- NodeContactAddressSchema]
-  {node-contact-address default-node-neighbor})
-
 (s/defn node-neighbors->contact-addresses :- [NodeContactAddressSchema]
   [node-neighbors :- NodeNeighborsSchema]
   (let [rand-comparator (fn [& x] (*rand*))]
