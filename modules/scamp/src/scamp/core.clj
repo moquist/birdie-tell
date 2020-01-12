@@ -112,10 +112,6 @@
    ;; inform newly :downstream node that you are now in its :upstream
    :new-upstream-node
 
-   ;; Not in SCAMP: added to make it possible to instruct a node to
-   ;; unsubscribe.
-   :node-unsubscription
-
    ;; instruct an upstream node and a downstream node to connect
    ;; directly, without me in the middle
    :node-replacement
@@ -130,6 +126,12 @@
 
    ;; arc weight rebalancing message
    :new-arc-weight
+
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; Not in SCAMP: command messages
+
+   ;; instruct a node to unsubscribe.
+   :cmd-unsubscribe
 
    ;; more stuff that isn't here yet...
    ))
@@ -561,7 +563,7 @@ TODO:
                           {:node node :subscriber-contact-address subscriber-contact-address})))
         [node forwarded-subscription-messages]))))
 
-(s/defmethod receive-msg :node-unsubscription :- CommUpdateSchema
+(s/defmethod receive-msg :cmd-unsubscribe :- CommUpdateSchema
   #_"Take 'config, a node, and the ID of a node that is unsubscribing.
 
    If the unsubscribing node is not this one throw an exception.
@@ -604,7 +606,7 @@ TODO:
    _envelope-id :- MessageEnvelopeIdSchema]
 
   (timbre/log* logging :trace
-               :receive-msg-node-unsubscription
+               :receive-msg-cmd-unsubscribe
                :node node
                :unsubscribing-node-id unsubscribing-node-id
                :connection-redundancy connection-redundancy)
@@ -613,7 +615,7 @@ TODO:
 
     (when (not= node-id unsubscribing-node-id)
       ;; TODO: Be more resiliant.
-      (throw (ex-info "Received :node-unsubscription for other node."
+      (throw (ex-info "Received :cmd-unsubscribe for other node."
                       {:unsubscribing-node-id unsubscribing-node-id})))
 
     (let [upstream-nodes (node-neighbors->contact-addresses (:upstream node))
@@ -660,7 +662,7 @@ TODO:
           drop-me-msgs (doall (map #(msg->envelope % :node-removal node-id) droppers))]
 
       (timbre/log* logging :trace
-               :receive-msg-node-unsubscription
+               :receive-msg-cmd-unsubscribe
                :replacement-messages replacement-messages
                :drop-me-msgs drop-me-msgs)
       [(node->removed node) (util/concatv replacement-messages drop-me-msgs)])))

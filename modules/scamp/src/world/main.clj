@@ -56,12 +56,13 @@
   'world.
 
   Given 'world and the id of a node that is unsubscribing, add a
-  :node-unsubscription message to and return 'world."
+  :cmd-unsubscribe message to and return 'world."
   [world :- WorldSchema
    node-to-unsubscribe :- scamp/NodeContactAddressSchema]
   (world-add-messages world [(scamp/msg->envelope node-to-unsubscribe
-                                                 :node-unsubscription
-                                                 node-to-unsubscribe)]))
+                                                  :cmd-unsubscribe
+                                                  node-to-unsubscribe)]))
+
 
 (s/defn world-do-async-processing :- WorldSchema
   [world :- WorldSchema]

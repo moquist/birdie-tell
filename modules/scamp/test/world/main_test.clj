@@ -107,7 +107,7 @@
     world
     (recur (main/world-do-comm world) (dec n))))
 
-(deftest receive-msg-node-unsubscription-test
+(deftest receive-msg-cmd-unsubscribe-test
   (scamp-test/scamp-test
    #(let [world (-> (world-with-subs 43)
                     main/world-do-all-comms
@@ -182,7 +182,7 @@
     (spit (str output-filename-base "-01.dot") (main/world->dot world))
     (spit (str output-filename-base "-02.dot") (main/world->dot world-2))))
 
-(defn demo-unsubscription2 [& [output-filename-base]]
+(defn demo-unsubscription2 []
   (scamp-test/scamp-test
    #(let [world (world-with-subs 6)
           world-2 (-> world
