@@ -192,7 +192,12 @@ TODO:
   )
 
 (def default-node-neighbor
-  {:weight 1/2})
+  {:weight 0.5})
+
+(s/defn neighbors->average-weight :- s/Num
+  [neighbors-collection :- NodeNeighborsSchema]
+  (let [weights (map (fn [[_ n]] (:weight n)) neighbors-collection)]
+    (/ (reduce + weights) (count weights) 1.0)))
 
 (def sample-node
   {:self {:id "node-id5"
@@ -309,7 +314,10 @@ TODO:
     (-> subscriber-address
         node-contact-address->node
         init-fn
-        (assoc-in [:downstream contact-node] default-node-neighbor))))
+        (assoc-in [:downstream contact-node]
+                  (assoc default-node-neighbor
+                         ;; Only :downstream, :weight is necessarily 1.0.
+                         :weight 1.0)))))
 
 (s/defn subscription-acceptance-probability :- ProbabilitySchema
   "Determine the probability that a node will accept a subscription

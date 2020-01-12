@@ -23,3 +23,12 @@
         (dissoc old)
         (assoc new old-neighbor))
     node-neighbors))
+
+(defn map-map
+  "Apply 'key-fn to each of the keys in 'm, and the 'val-fn to each of
+  the vals in 'm."
+  [m & {:keys [key-fn val-fn]
+        :or {key-fn identity val-fn identity}}]
+  (->> m
+       (map (fn mm* [[k v]] [(key-fn k) (val-fn v)]))
+       (into {})))

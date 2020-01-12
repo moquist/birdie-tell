@@ -5,6 +5,7 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [scamp.core :as core]
+            [scamp.util :as util]
             [schema.core :as s]))
 
 (s/set-fn-validation! true)
@@ -279,18 +280,50 @@
       (prn qc-report))
     (is result)))
 
+(defn round-weight
+  [weight]
+  (-> weight
+      (* 1000.0)
+      int
+      (/ 1000.0)))
+
+(defn weights-equalish?
+  "If 'weights are equal to within a hundredth, they're close enough."
+  [& weights]
+  (->> weights
+       (map round-weight)
+       (apply =)))
+
+(defn round-neighbors-weights
+  [neighbors-collection]
+  (util/map-map neighbors-collection
+                :val-fn
+                (fn rnw* [n] (update n :weight round-weight))))
+
+(defn nodes-equal?
+  [& nodes]
+  (->> nodes
+       (map (fn rw* [node]
+              (-> node
+                  (update :upstream round-neighbors-weights)
+                  (update :downstream round-neighbors-weights))))))
+
 (deftest rebalance-arc-weights-test
-  (let [node-neighbors {"node1" {:weight 1} "node2" {:weight 2} "node3" {:weight 3}}]
-    (is (= {"node1" {:weight 1/6} "node2" {:weight 1/3} "node3" {:weight 1/2}}
-           (core/rebalance-arc-weights node-neighbors)))))
+  (let [node-neighbors {"node1" {:weight 1} "node2" {:weight 2} "node3" {:weight 3}}
+        expected {"node1" {:weight 1/6} "node2" {:weight 1/3} "node3" {:weight 1/2}}]
+    (is (map
+         (fn [[nca n]]
+           (weights-equalish? (:weight n)
+                              (get-in expected [nca :weight])))
+         (core/rebalance-arc-weights node-neighbors)))))
 
 (deftest node-rebalance-arc-weights-test
   (let [org-upstream (node-contact-addresses->node-neighbors
                       ["Gandalf" "Gaffer" "Gollum"])
         org-downstream (node-contact-addresses->node-neighbors
                         ["Sam" "Gollum" "Meriadoc" "Peregrin"])
-        expected-upstream-weight (/ 1 (count org-upstream))
-        expected-downstream-weight (/ 1 (count org-downstream))
+        expected-upstream-weight (/ 1.0 (count org-upstream))
+        expected-downstream-weight (/ 1.0 (count org-downstream))
         this-node "Frodo"
         starting-node (assoc (core/node-contact-address->node this-node)
                              :upstream org-upstream
@@ -299,16 +332,16 @@
         [{:as node :keys [upstream downstream]} messages]
         (core/node-rebalance-arc-weights core/default-config starting-node)]
     (is (every? (fn [[_k {:keys [weight]}]]
-                  (= weight expected-upstream-weight))
+                  (weights-equalish? weight expected-upstream-weight))
                 upstream))
     (is (every? (fn [[_k {:keys [weight]}]]
-                  (= weight expected-downstream-weight))
+                  (weights-equalish? weight expected-downstream-weight))
                 downstream))
     (is (every? (fn [[_ _ _ body _]]
                   (let [{:keys [upstream-node downstream-node weight]} body]
                     (condp = this-node
-                      downstream-node (= weight expected-upstream-weight)
-                      upstream-node (= weight expected-downstream-weight)
+                      downstream-node (weights-equalish? weight expected-upstream-weight)
+                      upstream-node (weights-equalish? weight expected-downstream-weight)
                       false)))
                 messages))))
 
@@ -334,9 +367,15 @@
                                   starting-node
                                   {:upstream-node "Wiggum" :downstream-node this-node :weight 97} "43")
         ]
-    (is (= node1 (assoc-in starting-node [:downstream "Meriadoc" :weight] 7)))
-    (is (= node2 (assoc-in starting-node [:upstream "Gollum" :weight] 17)))
-    (is (= node3 starting-node))))
+    (is (nodes-equal? node1 (assoc-in starting-node [:downstream "Meriadoc" :weight] 7)))
+    (is (nodes-equal? node2 (assoc-in starting-node [:upstream "Gollum" :weight] 17)))
+    (is (nodes-equal? node3 starting-node))))
+
+(deftest neighbors->average-weight-test
+  (is (= 2.0 (core/neighbors->average-weight {"Elnear" {:weight 1},
+                                              "Luzali" {:weight 2},
+                                              "Cat" {:weight 3}}))))
+
 
 ;; TODO: set up a world with enough nodes to have some interesting upstream/downstream, maybe manaully set a couple to have shorter heartbeat-timeouts than the send-next-heartbeats-milli-time of everything else, so they unsubscribe and re-subscribe
 
