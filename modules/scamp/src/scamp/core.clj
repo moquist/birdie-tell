@@ -43,6 +43,22 @@
 (defn- rand-nth* [coll]
   (nth coll (rand-int* (count coll))))
 
+(defn rand-probabilistic-nth*
+  "Given 'coll and a 'weight-fn that returns the weight of an element
+  in 'coll, choose a random element from 'coll with probability
+  proportional to its weight. Weights for the elements in 'coll must
+  sum very nearly to 1 for results to be nearly correct."
+  [coll weight-fn]
+  (let [choice (*rand*)]
+    (loop [[x & r] coll
+           weight-sum 0]
+      (if x
+        (let [new-weight-sum (+ weight-sum (weight-fn x))]
+          (if (< choice new-weight-sum)
+            x
+            (recur r new-weight-sum)))
+        (last coll)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn tick-clock-millis! [clock-atom & [num-ticks]]
   (swap! clock-atom + (or num-ticks 1)))

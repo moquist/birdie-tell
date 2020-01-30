@@ -6,7 +6,8 @@
             [clojure.test.check.properties :as prop]
             [scamp.core :as core]
             [scamp.util :as util]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import java.lang.Math))
 
 (s/set-fn-validation! true)
 
@@ -376,6 +377,28 @@
                                               "Luzali" {:weight 2},
                                               "Cat" {:weight 3}}))))
 
+(deftest rand-probabilistic-nth*-test
+  (is (nil? (core/rand-probabilistic-nth* [] :dunno)))
+  (scamp-test
+   (fn rand-probabilistic-nth*-test* []
+     (let [n 100000
+           source-data {1 0.7
+                        2 0.2
+                        3 0.1}
+           coll (reduce (fn [r [k v]] (conj r {:nom k :weight v})) [] source-data)
+           randoms (repeatedly n #(:nom (core/rand-probabilistic-nth* coll :weight)))
+           group-counts (util/map-map (group-by identity randoms)
+                                      :val-fn count)
+           precision 1000
+           disclusive-max-error (* precision 0.02)]
+       (is (< (apply max
+                     (for [[group result] group-counts
+                           :let [expected (source-data group)]]
+                       (Math/abs (- precision
+                                    (* precision
+                                       (/ result (* expected n)
+                                          1.0))))))
+              disclusive-max-error))))))
 
 ;; TODO: set up a world with enough nodes to have some interesting upstream/downstream, maybe manaully set a couple to have shorter heartbeat-timeouts than the send-next-heartbeats-milli-time of everything else, so they unsubscribe and re-subscribe
 
