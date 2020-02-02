@@ -65,9 +65,9 @@
 (def ^:dynamic *milli-time* deref)
 
 (defn jitter-int
-  "Given a 'base-duration in some numerical unit of time, and an
+  "Given a 'base-duration in some numerical unit and an
   'agitation-distance the jitter can cover from that 'base-duration,
-  compute a jittered duration and return it as an integer."
+  compute a jittered value and return it as an integer."
   [base-duration agitation-distance]
   (let [agitation (- (*rand* agitation-distance) (/ agitation-distance 2))]
     (int (+ base-duration agitation))))
