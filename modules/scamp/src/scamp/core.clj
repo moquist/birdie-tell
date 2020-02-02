@@ -422,8 +422,30 @@ TODO:
      ;; TODO: How does the convergence change if these messages are interleaved or randomized?
      (util/concatv u-messages d-messages)]))
 
-;; TODO: figure out the discussion of initial weights on left column of p5
-;; TODO: create rebalancing message type and messages and tests
+(s/defn handle-new-subscription :- CommUpdateSchema
+  [{:as cluster-config :keys [logging connection-redundancy]}
+   {:as node :keys [downstream]} :- NetworkedNodeSchema
+   self-id :- NodeContactAddressSchema
+   subscription :- SubscriptionSchema]
+  (let [node (update node :upstream maybe-neighbor self-id subscription)
+        new-messages (if (empty? downstream)
+                       ;; There is no 'downstream. No messages are needed, because the
+                       ;; 'subscription node will already have 'node in its
+                       ;; :downstream.
+                       []
+
+                       ;; Forward subscription to :downstream.
+                       (let [downstream (node-neighbors->contact-addresses downstream)
+                             downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
+                                                 downstream
+                                                 (range connection-redundancy))]
+                         (mapv
+                          (fn [node-contact-address]
+                            (msg->envelope node-contact-address
+                                           :forwarded-subscription
+                                           subscription))
+                          downstream+)))]
+    [node new-messages]))
 
 (s/defmethod receive-msg :new-subscription :- CommUpdateSchema
   #_"Add 'subscription to :upstream.
@@ -446,26 +468,7 @@ TODO:
   (let [self-id (networked-node->node-contact-address node)]
     (when (= self-id subscription)
       (throw (ex-info (str "Got own new subscription: " subscription) {:node node})))
-
-    (let [node (update node :upstream maybe-neighbor self-id subscription)
-          new-messages (if (empty? downstream)
-                         ;; There is no 'downstream. No messages are needed, because the
-                         ;; 'subscription node will already have 'node in its
-                         ;; :downstream.
-                         []
-
-                         ;; Forward subscription to :downstream.
-                         (let [downstream (node-neighbors->contact-addresses downstream)
-                               downstream+ (reduce (fn [x _] (conj x (rand-nth* downstream)))
-                                                   downstream
-                                                   (range connection-redundancy))]
-                           (mapv
-                            (fn [node-contact-address]
-                              (msg->envelope node-contact-address
-                                             :forwarded-subscription
-                                             subscription))
-                            downstream+)))]
-      [node new-messages])))
+    (handle-new-subscription cluster-config node self-id subscription)))
 
 (s/defn do-probability :- s/Bool
   "'rand is inclusive of 0 and exclusive of 1, so our test should not have '=."
